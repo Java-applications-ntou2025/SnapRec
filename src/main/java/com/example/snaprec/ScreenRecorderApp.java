@@ -19,6 +19,7 @@ public class ScreenRecorderApp extends Application {
             try {
                 recorder = new Recorder("output.mp4");
                 recorder.start();
+                System.out.println("start record!");
             } catch (Exception ex) {
                 ex.printStackTrace();
             }
@@ -27,6 +28,7 @@ public class ScreenRecorderApp extends Application {
         stopBtn.setOnAction(e -> {
             if (recorder != null) {
                 recorder.stopRecording();
+                System.out.println("record ended");
             }
         });
 
