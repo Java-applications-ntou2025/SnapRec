@@ -1,5 +1,6 @@
 module com.example.snaprec {
     requires javafx.controls;
+    requires javafx.media;
     requires javafx.fxml;
 
     requires org.bytedeco.javacv;

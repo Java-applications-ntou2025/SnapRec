@@ -20,7 +20,7 @@ public class Recorder extends Thread {
     private final OpenCVFrameConverter.ToMat converter = new OpenCVFrameConverter.ToMat();
 
     // 設定幀率
-    private final int targetFPS = 20;  // 設定為30fps來避免快轉
+    private final int targetFPS = 15;  // 設定為30fps來避免快轉
     private final long frameIntervalNanos = 1_000_000_000L / targetFPS; // 每幀時間
 
     public Recorder(String filename) throws Exception {
