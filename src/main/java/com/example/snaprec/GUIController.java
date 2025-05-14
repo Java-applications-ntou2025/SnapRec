@@ -22,6 +22,8 @@ public class GUIController {
     private MediaView mediaView;
     private Slider progressSlider;
     private boolean isSeeking = false;
+    private GlobalMouseListener globalMouseListener;
+
 
     public Scene createScene() {
         Button startBtn = new Button("開始錄影");
@@ -30,21 +32,32 @@ public class GUIController {
         Button pauseBtn = new Button("暫停");
 
         startBtn.setOnAction(e -> {
-            try {
-                recorder = new Recorder("output.mp4");
-                recorder.start();
-            } catch (Exception ex) {
-                ex.printStackTrace();
+            if (recorder == null || !recorder.isAlive()) {
+                try {
+                    recorder = new Recorder("output.mp4");
+                    recorder.start();
+                    globalMouseListener = new GlobalMouseListener(recorder); // 儲存 listener
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
             }
         });
 
+
+
+
         stopBtn.setOnAction(e -> {
             if (recorder != null) {
-                recorder.stopRecording();
+                recorder.shutdownAndWait();
                 recorder = null;
+                if (globalMouseListener != null) {
+                    globalMouseListener.stop();
+                    globalMouseListener = null;
+                }
                 playVideo();
             }
         });
+
 
         playBtn.setOnAction(e -> {
             if (mediaPlayer != null) {
@@ -86,6 +99,11 @@ public class GUIController {
 
         return scene;
     }
+
+    public void setRecorder(Recorder recorder) {
+        this.recorder = recorder;
+    }
+
 
     private void playVideo() {
         File videoFile = new File("output.mp4");

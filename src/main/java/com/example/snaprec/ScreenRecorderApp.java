@@ -7,6 +7,8 @@ import javafx.stage.Stage;
 public class ScreenRecorderApp extends Application {
 
     private GUIController guiController;
+    private Recorder recorder = null;
+    private GlobalMouseListener globalMouseListener;
 
     @Override
     public void start(Stage primaryStage) {
@@ -18,7 +20,18 @@ public class ScreenRecorderApp extends Application {
         primaryStage.show();
     }
 
+    @Override
+    public void stop() {
+        if (globalMouseListener != null) {
+            globalMouseListener.stop();
+        }
+        if (recorder != null) {
+            recorder.stopRecording();
+        }
+    }
+
     public static void main(String[] args) {
         launch(args);
     }
 }
+
