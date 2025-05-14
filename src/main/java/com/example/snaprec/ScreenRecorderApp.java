@@ -17,7 +17,10 @@ public class ScreenRecorderApp extends Application {
 
         startBtn.setOnAction(e -> {
             try {
-                recorder = new Recorder("output.mp4");
+//                String basePath = System.getProperty("user.dir"); // 取得目前工作目錄
+//                String outputPath = basePath + "/src/main/java/com/example/snaprec/output.mp4";
+//                recorder = new Recorder(outputPath);
+                recorder = new Recorder("C:/Users/t0910/OneDrive/codes/JavaFinal/SnapRec/src/main/java/com/example/snaprec/output.mp4");
                 recorder.start();
                 System.out.println("start record!");
             } catch (Exception ex) {
