@@ -25,7 +25,7 @@ public class Recorder extends Thread {
 
     private volatile Point zoomCenter = null;
     private final int zoomSize = 300;  // 要截取的區域大小
-    private final double zoomScale = 0.85;  // 放大倍率
+    private final double zoomScale = 1.2;  // 放大倍率
     private volatile ZoomEffect zoomEffect = null;
 
 
@@ -45,14 +45,6 @@ public class Recorder extends Thread {
 
     public void setZoomCenter(Point point) {
         this.zoomEffect = new ZoomEffect(point);
-
-        // 3 秒後自動取消放大
-        new Thread(() -> {
-            try {
-                Thread.sleep(3000);
-            } catch (InterruptedException ignored) {}
-            zoomEffect = null;
-        }).start();
     }
 
 
@@ -88,26 +80,38 @@ public class Recorder extends Thread {
     private void captureAndRecord() {
         try {
             BufferedImage screen = robot.createScreenCapture(screenRect);
-
-            if (zoomEffect != null) {
-                if (zoomEffect.isExpired()) {
+            ZoomEffect effect = zoomEffect; // 用區域變數保留，避免在中間變成 null
+            if (effect != null) {
+                if (effect.isExpired()) {
                     zoomEffect = null;
                 } else {
-                    double currentScale = zoomEffect.getCurrentScale();
-                    System.out.println("目前放大倍率: " + currentScale);
+                    double scale = effect.getCurrentScale();
+                    int zoomW = (int)(screen.getWidth() * scale);
+                    int zoomH = (int)(screen.getHeight() * scale);
 
-                    int size = (int)(zoomSize / currentScale);
-                    int x = zoomEffect.center.x - size / 2;
-                    int y = zoomEffect.center.y - size / 2;
-                    x = Math.max(0, Math.min(x, screen.getWidth() - size));
-                    y = Math.max(0, Math.min(y, screen.getHeight() - size));
-
-                    BufferedImage subImage = screen.getSubimage(x, y, size, size);
-                    BufferedImage zoomedImage = new BufferedImage(screenRect.width, screenRect.height, BufferedImage.TYPE_3BYTE_BGR);
-                    Graphics2D g = zoomedImage.createGraphics();
-                    g.drawImage(subImage, 0, 0, screenRect.width, screenRect.height, null);
+                    BufferedImage zoomed = new BufferedImage(zoomW, zoomH, BufferedImage.TYPE_3BYTE_BGR);
+                    Graphics2D g = zoomed.createGraphics();
+                    g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                    g.drawImage(screen, 0, 0, zoomW, zoomH, null);
                     g.dispose();
-                    screen = zoomedImage;
+
+                    // 計算滑鼠在原圖的位置，對應到放大圖的位置
+                    int mouseX = effect.center.x;
+                    int mouseY = effect.center.y;
+
+                    // 放大後，滑鼠的點會對應到 zoomEffect.center * scale
+                    int centerX = (int)(mouseX * scale);
+                    int centerY = (int)(mouseY * scale);
+
+                    // 我們要讓這個點在畫面中間，所以裁切畫面：
+                    int cropX = centerX - screenRect.width / 2;
+                    int cropY = centerY - screenRect.height / 2;
+
+                    // 防止超出邊界
+                    cropX = Math.max(0, Math.min(cropX, zoomed.getWidth() - screenRect.width));
+                    cropY = Math.max(0, Math.min(cropY, zoomed.getHeight() - screenRect.height));
+
+                    screen = zoomed.getSubimage(cropX, cropY, screenRect.width, screenRect.height);
                 }
             }
 
@@ -134,24 +138,51 @@ public class Recorder extends Thread {
     private class ZoomEffect {
         final Point center;
         final long startTime;
-        final long duration = 500_000_000L; // 0.5秒（以 nanosecond 為單位）
+        final long durationExpand = 600_000_000L; // 放大動畫 0.5 秒
+        final long durationHold = 3_000_000_000L;  // 停留 3 秒
+        final long durationShrink = 600_000_000L; // 縮回動畫 0.5 秒
+        final long totalDuration = durationExpand + durationHold + durationShrink;
+        final double zoomScale = 1.5;  // 假設這裡設置放大倍率為 1.5
 
         public ZoomEffect(Point center) {
             this.center = center;
             this.startTime = System.nanoTime();
         }
 
+        // 平滑插值（Ease In and Out）
+        private double easeInOut(double t) {
+            return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+        }
+
         public double getCurrentScale() {
             long elapsed = System.nanoTime() - startTime;
-            if (elapsed >= duration) return zoomScale; // 到達最終倍率
-            double progress = (double) elapsed / duration;
-            return 1.0 + (zoomScale - 1.0) * progress;
+
+            if (elapsed <= durationExpand) {
+                // 放大中：1.0 → zoomScale
+                double progress = (double) elapsed / durationExpand;
+                progress = easeInOut(progress);  // 加入平滑插值
+                return 1.0 + (zoomScale - 1.0) * progress;
+            } else if (elapsed <= durationExpand + durationHold) {
+                // 保持最大倍率
+                return zoomScale;
+            } else if (elapsed <= totalDuration) {
+                // 縮回中：zoomScale → 1.0
+                double shrinkElapsed = elapsed - durationExpand - durationHold;
+                double progress = shrinkElapsed / (double) durationShrink;
+                progress = easeInOut(progress);  // 加入平滑插值
+                return zoomScale - (zoomScale - 1.0) * progress;
+            } else {
+                // 已經結束
+                return 1.0;
+            }
         }
 
         public boolean isExpired() {
-            return System.nanoTime() - startTime > 3_000_000_000L; // 3 秒後結束
+            return System.nanoTime() - startTime > totalDuration;
         }
     }
+
+
 
     public void shutdownAndWait() {
         stopRecording();
