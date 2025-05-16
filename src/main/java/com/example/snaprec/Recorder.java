@@ -1,7 +1,6 @@
 package com.example.snaprec;
 
 import org.bytedeco.javacv.*;
-import org.bytedeco.javacv.Frame;
 import org.bytedeco.opencv.global.opencv_core;
 import org.bytedeco.opencv.opencv_core.Mat;
 import org.bytedeco.ffmpeg.global.avcodec;
@@ -10,6 +9,8 @@ import org.bytedeco.ffmpeg.global.avutil;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
+import java.io.File;
+import javax.imageio.ImageIO;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class Recorder extends Thread {
@@ -20,12 +21,26 @@ public class Recorder extends Thread {
     private final OpenCVFrameConverter.ToMat converter = new OpenCVFrameConverter.ToMat();
 
     // 設定幀率
-    private final int targetFPS = 15;  // 設定為30fps來避免快轉
-    private final long frameIntervalNanos = 1_000_000_000L / targetFPS; // 每幀時間
+    private final int targetFPS = 15;  // 設定為15fps
+    private final long frameIntervalNanos = 1_000_000_000L / targetFPS; // 每幀間隔
+
+    // 將背景圖片提前載入（假設檔案路徑正確）
+    private final BufferedImage backgroundImage;
+    private final int outputWidth;
+    private final int outputHeight;
+
+    private long videoTimestamp = 0;
+    private final long timestampIncrementMicros = 1_000_000L / targetFPS;
 
     public Recorder(String filename) throws Exception {
         robot = new Robot();
-        recorder = new FFmpegFrameRecorder(filename, screenRect.width, screenRect.height);
+        // 提前載入背景圖片
+        backgroundImage = ImageIO.read(new File("src\\picture\\背景01.jpg"));
+        outputWidth = backgroundImage.getWidth();
+        outputHeight = backgroundImage.getHeight();
+
+        // 這邊我們以背景圖片的尺寸作為輸出尺寸
+        recorder = new FFmpegFrameRecorder(filename, outputWidth, outputHeight);
         recorder.setVideoCodec(avcodec.AV_CODEC_ID_H264);
         recorder.setFormat("mp4");
         recorder.setFrameRate(targetFPS);
@@ -42,7 +57,6 @@ public class Recorder extends Thread {
         try {
             recorder.start();
             running.set(true);
-
             long nextFrameTime = System.nanoTime();
 
             while (running.get()) {
@@ -55,7 +69,6 @@ public class Recorder extends Thread {
                     Thread.sleep(Math.max(0, sleepTime));
                 }
             }
-
             recorder.stop();
             recorder.release();
         } catch (Exception e) {
@@ -63,22 +76,31 @@ public class Recorder extends Thread {
         }
     }
 
-    private long videoTimestamp = 0;
-    private final long timestampIncrementMicros = 1_000_000L / targetFPS;
-
     private void captureAndRecord() {
         try {
-            BufferedImage screen = robot.createScreenCapture(screenRect);
-            BufferedImage formatted = new BufferedImage(screen.getWidth(), screen.getHeight(), BufferedImage.TYPE_3BYTE_BGR);
-            Graphics2D g = formatted.createGraphics();
-            g.drawImage(screen, 0, 0, null);
+            // 擷取螢幕截圖
+            BufferedImage screenCapture = robot.createScreenCapture(screenRect);
+
+            // 建立一個與背景相同尺寸的合成圖
+            BufferedImage combinedImage = new BufferedImage(outputWidth, outputHeight, BufferedImage.TYPE_3BYTE_BGR);
+            Graphics2D g = combinedImage.createGraphics();
+
+            // 繪製背景圖片
+            g.drawImage(backgroundImage, 0, 0, null);
+
+            // 計算螢幕截圖放在背景中間的座標
+            int x = (outputWidth - screenCapture.getWidth()) / 2;
+            int y = (outputHeight - screenCapture.getHeight()) / 2;
+            g.drawImage(screenCapture, x, y, null);
             g.dispose();
 
-            byte[] data = ((DataBufferByte) formatted.getRaster().getDataBuffer()).getData();
-            Mat mat = new Mat(screenRect.height, screenRect.width, opencv_core.CV_8UC3);
+            // 將合成後的圖轉成 Mat 物件
+            byte[] data = ((DataBufferByte) combinedImage.getRaster().getDataBuffer()).getData();
+            Mat mat = new Mat(outputHeight, outputWidth, opencv_core.CV_8UC3);
             mat.data().put(data);
 
-            Frame frame = converter.convert(mat);
+            // 轉換成 Frame 並錄製
+            org.bytedeco.javacv.Frame frame = converter.convert(mat);
             recorder.setTimestamp(videoTimestamp);  // 設置時間戳
             recorder.record(frame);
 
