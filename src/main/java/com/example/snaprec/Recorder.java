@@ -32,6 +32,7 @@ public class Recorder extends Thread {
     private long videoTimestamp = 0;
     private final long timestampIncrementMicros = 1_000_000L / targetFPS;
 
+
     public Recorder(String filename) throws Exception {
         robot = new Robot();
         // 提前載入背景圖片
