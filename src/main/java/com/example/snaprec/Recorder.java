@@ -7,6 +7,12 @@ import org.bytedeco.opencv.opencv_core.Mat;
 import org.bytedeco.ffmpeg.global.avcodec;
 import org.bytedeco.ffmpeg.global.avutil;
 
+import java.io.File;
+import java.util.List;
+import java.util.ArrayList;
+import javax.imageio.ImageIO;
+
+
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
@@ -27,6 +33,7 @@ public class Recorder extends Thread {
     private final int zoomSize = 300;  // 要截取的區域大小
     private final double zoomScale = 1.2;  // 放大倍率
     private volatile ZoomEffect zoomEffect = null;
+    private final List<ClickEffect> clickEffects = new ArrayList<>();
 
 
     public Recorder(String filename) throws Exception {
@@ -74,6 +81,13 @@ public class Recorder extends Thread {
         }
     }
 
+    public void addClickEffect(Point point) {
+        synchronized (clickEffects) {
+            clickEffects.add(new ClickEffect(point));
+        }
+    }
+
+
     private long videoTimestamp = 0;
     private final long timestampIncrementMicros = 1_000_000L / targetFPS;
 
@@ -115,9 +129,30 @@ public class Recorder extends Thread {
                 }
             }
 
+            PointerInfo pointerInfo = MouseInfo.getPointerInfo();
+            Point mouseLocation = pointerInfo.getLocation();
+
+            Graphics2D g = screen.createGraphics();
+            BufferedImage cursorImage = ImageIO.read(new File("C:\\Users\\liuch\\IdeaProjects\\SnapRecGUI\\src\\cursorImageRepository\\cursor-mouse-svg-icon-free-download-windows-10-cursor-icon-triangle-symbol-transparent-png-1038697.png"));
+            g.drawImage(cursorImage, mouseLocation.x, mouseLocation.y, null);
+            // 顯示點擊特效
+            synchronized (clickEffects) {
+                clickEffects.removeIf(ClickEffect::isExpired);
+                for (ClickEffect clickeffect : clickEffects) {
+                    double progress = clickeffect.getProgress();  // 0 ~ 1
+                    float alpha = (float) (1.0 - progress);
+                    int radius = (int) (30 + 40 * progress);
+
+                    g.setColor(new Color(1.0f, 0f, 0f, alpha)); // 紅色，逐漸淡出
+                    g.setStroke(new BasicStroke(3));
+                    g.drawOval(clickeffect.location.x - radius / 2, clickeffect.location.y - radius / 2, radius, radius);
+                }
+            }
+            g.dispose();
+
 
             BufferedImage formatted = new BufferedImage(screen.getWidth(), screen.getHeight(), BufferedImage.TYPE_3BYTE_BGR);
-            Graphics2D g = formatted.createGraphics();
+            g = formatted.createGraphics();
             g.drawImage(screen, 0, 0, null);
             g.dispose();
 
@@ -132,6 +167,24 @@ public class Recorder extends Thread {
             videoTimestamp += timestampIncrementMicros;
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    private class ClickEffect {
+        final Point location;
+        final long timestamp; // 開始時間
+
+        ClickEffect(Point location) {
+            this.location = location;
+            this.timestamp = System.nanoTime();
+        }
+
+        boolean isExpired() {
+            return System.nanoTime() - timestamp > 500_000_000L; // 0.5 秒
+        }
+
+        double getProgress() {
+            return (System.nanoTime() - timestamp) / 500_000_000.0;
         }
     }
 
