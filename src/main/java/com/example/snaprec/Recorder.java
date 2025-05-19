@@ -37,8 +37,8 @@ public class Recorder extends Thread {
         robot = new Robot();
         // 提前載入背景圖片
         backgroundImage = ImageIO.read(new File("src\\picture\\背景01.jpg"));
-        outputWidth = backgroundImage.getWidth();
-        outputHeight = backgroundImage.getHeight();
+        this.outputWidth = 1920;
+        this.outputHeight = 1080;
 
         // 這邊我們以背景圖片的尺寸作為輸出尺寸
         recorder = new FFmpegFrameRecorder(filename, outputWidth, outputHeight);
@@ -51,11 +51,16 @@ public class Recorder extends Thread {
         recorder.setVideoBitrate(8000 * 1000); // 8 Mbps
         recorder.setVideoOption("preset", "slow");
         recorder.setVideoOption("crf", "18");
+
+        // 音訊設定
+        recorder.setAudioCodec(avcodec.AV_CODEC_ID_AAC);
+        recorder.setAudioChannels(1);
     }
 
     @Override
     public void run() {
         try {
+            System.out.println("Recorder: 開始錄影...");
             recorder.start();
             running.set(true);
             long nextFrameTime = System.nanoTime();
@@ -72,7 +77,11 @@ public class Recorder extends Thread {
             }
             recorder.stop();
             recorder.release();
+            System.out.println("Recorder: 錄影結束。");
+            File f = new File("output.mp4");
+            System.out.println("Recorder: 檔案存在？" + f.exists() + "，大小：" + f.length());
         } catch (Exception e) {
+            System.err.println("Recorder: 錄影過程發生錯誤！");
             e.printStackTrace();
         }
     }
@@ -82,17 +91,21 @@ public class Recorder extends Thread {
             // 擷取螢幕截圖
             BufferedImage screenCapture = robot.createScreenCapture(screenRect);
 
-            // 建立一個與背景相同尺寸的合成圖
+            // 計算縮放後的寬高（80%）
+            int scaledWidth = (int) (outputWidth * 0.8);
+            int scaledHeight = (int) (outputHeight * 0.8);
+
+            // 建立合成圖
             BufferedImage combinedImage = new BufferedImage(outputWidth, outputHeight, BufferedImage.TYPE_3BYTE_BGR);
             Graphics2D g = combinedImage.createGraphics();
 
-            // 繪製背景圖片
-            g.drawImage(backgroundImage, 0, 0, null);
+            // 畫背景圖
+            g.drawImage(backgroundImage, 0, 0, outputWidth, outputHeight, null);
 
-            // 計算螢幕截圖放在背景中間的座標
-            int x = (outputWidth - screenCapture.getWidth()) / 2;
-            int y = (outputHeight - screenCapture.getHeight()) / 2;
-            g.drawImage(screenCapture, x, y, null);
+            // 將螢幕截圖縮放後置中
+            int x = (outputWidth - scaledWidth) / 2;
+            int y = (outputHeight - scaledHeight) / 2;
+            g.drawImage(screenCapture, x, y, scaledWidth, scaledHeight, null);
             g.dispose();
 
             // 將合成後的圖轉成 Mat 物件
@@ -107,11 +120,13 @@ public class Recorder extends Thread {
 
             videoTimestamp += timestampIncrementMicros;  // 增加時間戳
         } catch (Exception e) {
+            System.err.println("Recorder: 擷取或錄製影格時發生錯誤！");
             e.printStackTrace();
         }
     }
 
     public void stopRecording() {
         running.set(false);
+        System.out.println("Recorder: 收到停止錄影指令。");
     }
 }
