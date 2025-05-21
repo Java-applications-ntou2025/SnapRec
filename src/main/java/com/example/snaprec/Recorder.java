@@ -6,6 +6,13 @@ import org.bytedeco.opencv.global.opencv_core;
 import org.bytedeco.opencv.opencv_core.Mat;
 import org.bytedeco.ffmpeg.global.avcodec;
 import org.bytedeco.ffmpeg.global.avutil;
+import org.bytedeco.javacv.Frame;
+
+import java.io.File;
+import java.util.List;
+import java.util.ArrayList;
+import javax.imageio.ImageIO;
+
 
 import java.awt.*;
 import java.awt.image.BufferedImage;
@@ -20,12 +27,32 @@ public class Recorder extends Thread {
     private final OpenCVFrameConverter.ToMat converter = new OpenCVFrameConverter.ToMat();
 
     // 設定幀率
-    private final int targetFPS = 20;  // 設定為30fps來避免快轉
-    private final long frameIntervalNanos = 1_000_000_000L / targetFPS; // 每幀時間
+    private final int targetFPS = 15;  // 設定為15fps
+    private final long frameIntervalNanos = 1_000_000_000L / targetFPS; // 每幀間隔
+
+    // 將背景圖片提前載入（假設檔案路徑正確）
+    private final BufferedImage backgroundImage;
+    private final int outputWidth;
+    private final int outputHeight;
+
+    private long videoTimestamp = 0;
+    private final long timestampIncrementMicros = 1_000_000L / targetFPS;
+
+
+
+    private volatile ZoomEffect zoomEffect = null;
+    private final List<ClickEffect> clickEffects = new ArrayList<>();
+
 
     public Recorder(String filename) throws Exception {
         robot = new Robot();
-        recorder = new FFmpegFrameRecorder(filename, screenRect.width, screenRect.height);
+        // 提前載入背景圖片
+        backgroundImage = ImageIO.read(new File("src\\picture\\背景01.jpg"));
+        this.outputWidth = 1920;
+        this.outputHeight = 1080;
+
+        // 這邊我們以背景圖片的尺寸作為輸出尺寸
+        recorder = new FFmpegFrameRecorder(filename, outputWidth, outputHeight);
         recorder.setVideoCodec(avcodec.AV_CODEC_ID_H264);
         recorder.setFormat("mp4");
         recorder.setFrameRate(targetFPS);
@@ -35,14 +62,23 @@ public class Recorder extends Thread {
         recorder.setVideoBitrate(8000 * 1000); // 8 Mbps
         recorder.setVideoOption("preset", "slow");
         recorder.setVideoOption("crf", "18");
+
+        // 音訊設定
+        recorder.setAudioCodec(avcodec.AV_CODEC_ID_AAC);
+        recorder.setAudioChannels(1);
     }
+
+    public void setZoomCenter(Point point) {
+        this.zoomEffect = new ZoomEffect(point);
+    }
+
 
     @Override
     public void run() {
         try {
+            System.out.println("Recorder: 開始錄影...");
             recorder.start();
             running.set(true);
-
             long nextFrameTime = System.nanoTime();
 
             while (running.get()) {
@@ -55,40 +91,140 @@ public class Recorder extends Thread {
                     Thread.sleep(Math.max(0, sleepTime));
                 }
             }
-
             recorder.stop();
             recorder.release();
+            System.out.println("Recorder: 錄影結束。");
+            File f = new File("output.mp4");
+            System.out.println("Recorder: 檔案存在？" + f.exists() + "，大小：" + f.length());
         } catch (Exception e) {
+            System.err.println("Recorder: 錄影過程發生錯誤！");
             e.printStackTrace();
         }
     }
 
-    private long videoTimestamp = 0;
-    private final long timestampIncrementMicros = 1_000_000L / targetFPS;
+    public void addClickEffect(Point point) {
+        synchronized (clickEffects) {
+            clickEffects.add(new ClickEffect(point));
+        }
+    }
 
     private void captureAndRecord() {
         try {
             BufferedImage screen = robot.createScreenCapture(screenRect);
-            BufferedImage formatted = new BufferedImage(screen.getWidth(), screen.getHeight(), BufferedImage.TYPE_3BYTE_BGR);
-            Graphics2D g = formatted.createGraphics();
-            g.drawImage(screen, 0, 0, null);
+            ZoomEffect effect = zoomEffect; // 用區域變數保留，避免中途變為 null
+
+            if (effect != null) {
+                if (effect.isExpired()) {
+                    zoomEffect = null;
+                } else {
+                    double scale = effect.getCurrentScale();
+                    int zoomW = (int)(screen.getWidth() * scale);
+                    int zoomH = (int)(screen.getHeight() * scale);
+
+                    BufferedImage zoomed = new BufferedImage(zoomW, zoomH, BufferedImage.TYPE_3BYTE_BGR);
+                    Graphics2D g = zoomed.createGraphics();
+                    g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                    g.drawImage(screen, 0, 0, zoomW, zoomH, null);
+                    g.dispose();
+
+                    int mouseX = effect.center.x;
+                    int mouseY = effect.center.y;
+
+                    int centerX = (int)(mouseX * scale);
+                    int centerY = (int)(mouseY * scale);
+
+                    int cropX = centerX - screenRect.width / 2;
+                    int cropY = centerY - screenRect.height / 2;
+
+                    cropX = Math.max(0, Math.min(cropX, zoomed.getWidth() - screenRect.width));
+                    cropY = Math.max(0, Math.min(cropY, zoomed.getHeight() - screenRect.height));
+
+                    screen = zoomed.getSubimage(cropX, cropY, screenRect.width, screenRect.height);
+                }
+            }
+
+            PointerInfo pointerInfo = MouseInfo.getPointerInfo();
+            Point mouseLocation = pointerInfo.getLocation();
+
+
+            // 建立合成圖（含背景 + 縮小的螢幕截圖 + 特效）
+            BufferedImage combinedImage = new BufferedImage(outputWidth, outputHeight, BufferedImage.TYPE_3BYTE_BGR);
+            Graphics2D g = combinedImage.createGraphics();
+
+            // 畫背景
+            g.drawImage(backgroundImage, 0, 0, outputWidth, outputHeight, null);
+
+            // 計算縮放後畫面大小與置中位置
+            int scaledWidth = (int)(outputWidth * 0.8);
+            int scaledHeight = (int)(outputHeight * 0.8);
+            int offsetX = (outputWidth - scaledWidth) / 2;
+            int offsetY = (outputHeight - scaledHeight) / 2;
+
+            // 畫縮小後的螢幕截圖
+            g.drawImage(screen, offsetX, offsetY, scaledWidth, scaledHeight, null);
+
+            synchronized (clickEffects) {
+                clickEffects.removeIf(ClickEffect::isExpired);
+                for (ClickEffect clickeffect : clickEffects) {
+                    double progress = clickeffect.getProgress();  // 0 ~ 1
+                    float alpha = (float)(1.0 - progress);
+                    int radius = (int)(30 + 40 * progress);
+
+                    // 對應到合成圖座標（根據縮放與位移轉換）
+                    int effectX = (int)(clickeffect.location.x * 0.8) + offsetX;
+                    int effectY = (int)(clickeffect.location.y * 0.8) + offsetY;
+
+                    g.setColor(new Color(1.0f, 0f, 0f, alpha)); // 紅色淡出
+                    g.setStroke(new BasicStroke(3));
+                    g.drawOval(effectX - radius / 2, effectY - radius / 2, radius, radius);
+                }
+            }
+
+            // 畫滑鼠游標（也要轉換）
+            BufferedImage cursorImage = ImageIO.read(new File("C:\\Users\\liuch\\IdeaProjects\\SnapRecGUI\\src\\cursorImageRepository\\cursor-mouse-svg-icon-free-download-windows-10-cursor-icon-triangle-symbol-transparent-png-1038697.png"));
+            int cursorX = (int)(mouseLocation.x * 0.8) + offsetX;
+            int cursorY = (int)(mouseLocation.y * 0.8) + offsetY;
+            g.drawImage(cursorImage, cursorX, cursorY, null);
+
             g.dispose();
 
-            byte[] data = ((DataBufferByte) formatted.getRaster().getDataBuffer()).getData();
-            Mat mat = new Mat(screenRect.height, screenRect.width, opencv_core.CV_8UC3);
+            // 轉成 Mat → Frame → 記錄
+            byte[] data = ((DataBufferByte) combinedImage.getRaster().getDataBuffer()).getData();
+            Mat mat = new Mat(outputHeight, outputWidth, opencv_core.CV_8UC3);
             mat.data().put(data);
 
             Frame frame = converter.convert(mat);
-            recorder.setTimestamp(videoTimestamp);  // 設置時間戳
+            recorder.setTimestamp(videoTimestamp);
             recorder.record(frame);
+            videoTimestamp += timestampIncrementMicros;
 
-            videoTimestamp += timestampIncrementMicros;  // 增加時間戳
         } catch (Exception e) {
+            System.err.println("Recorder: 擷取或錄製影格時發生錯誤！");
             e.printStackTrace();
         }
     }
 
+
+
+
+
+
+
+
+    public void shutdownAndWait() {
+        stopRecording();
+        try {
+            this.join();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+
+
+
     public void stopRecording() {
         running.set(false);
+        System.out.println("Recorder: 收到停止錄影指令。");
     }
 }
