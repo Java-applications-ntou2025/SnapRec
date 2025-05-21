@@ -6,6 +6,7 @@ import org.bytedeco.opencv.global.opencv_core;
 import org.bytedeco.opencv.opencv_core.Mat;
 import org.bytedeco.ffmpeg.global.avcodec;
 import org.bytedeco.ffmpeg.global.avutil;
+import org.bytedeco.javacv.Frame;
 
 import java.io.File;
 import java.util.List;
@@ -16,8 +17,6 @@ import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
-import java.io.File;
-import javax.imageio.ImageIO;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class Recorder extends Thread {
@@ -40,9 +39,7 @@ public class Recorder extends Thread {
     private final long timestampIncrementMicros = 1_000_000L / targetFPS;
 
 
-    private volatile Point zoomCenter = null;
-    private final int zoomSize = 300;  // 要截取的區域大小
-    private final double zoomScale = 1.2;  // 放大倍率
+
     private volatile ZoomEffect zoomEffect = null;
     private final List<ClickEffect> clickEffects = new ArrayList<>();
 
@@ -149,6 +146,7 @@ public class Recorder extends Thread {
             PointerInfo pointerInfo = MouseInfo.getPointerInfo();
             Point mouseLocation = pointerInfo.getLocation();
 
+
             // 建立合成圖（含背景 + 縮小的螢幕截圖 + 特效）
             BufferedImage combinedImage = new BufferedImage(outputWidth, outputHeight, BufferedImage.TYPE_3BYTE_BGR);
             Graphics2D g = combinedImage.createGraphics();
@@ -165,7 +163,6 @@ public class Recorder extends Thread {
             // 畫縮小後的螢幕截圖
             g.drawImage(screen, offsetX, offsetY, scaledWidth, scaledHeight, null);
 
-            // 畫點擊特效
             synchronized (clickEffects) {
                 clickEffects.removeIf(ClickEffect::isExpired);
                 for (ClickEffect clickeffect : clickEffects) {
