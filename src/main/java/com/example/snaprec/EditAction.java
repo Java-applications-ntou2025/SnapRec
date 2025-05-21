@@ -1,4 +1,7 @@
 package com.example.snaprec;
 
-public class EditAction {
+public interface EditAction {
+    void apply(VideoEditState state);
+    void undo(VideoEditState state);
 }
+

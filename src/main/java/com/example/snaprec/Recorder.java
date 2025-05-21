@@ -133,8 +133,9 @@ public class Recorder extends Thread {
             Point mouseLocation = pointerInfo.getLocation();
 
             Graphics2D g = screen.createGraphics();
-            BufferedImage cursorImage = ImageIO.read(new File("C:\\Users\\liuch\\IdeaProjects\\SnapRecGUI\\src\\cursorImageRepository\\cursor-mouse-svg-icon-free-download-windows-10-cursor-icon-triangle-symbol-transparent-png-1038697.png"));
+            BufferedImage cursorImage = ImageIO.read(new File("src/cursorImageRepository/cursor-mouse-svg-icon-free-download-windows-10-cursor-icon-triangle-symbol-transparent-png-1038697.png"));
             g.drawImage(cursorImage, mouseLocation.x, mouseLocation.y, null);
+
             // 顯示點擊特效
             synchronized (clickEffects) {
                 clickEffects.removeIf(ClickEffect::isExpired);

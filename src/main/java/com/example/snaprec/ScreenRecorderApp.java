@@ -12,7 +12,7 @@ public class ScreenRecorderApp extends Application {
 
     @Override
     public void start(Stage primaryStage) {
-        guiController = new GUIController();
+        guiController = new HomeGUI();
         Scene scene = guiController.createScene();
 
         primaryStage.setScene(scene);
