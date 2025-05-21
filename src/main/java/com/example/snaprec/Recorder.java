@@ -5,6 +5,7 @@ import org.bytedeco.opencv.global.opencv_core;
 import org.bytedeco.opencv.opencv_core.Mat;
 import org.bytedeco.ffmpeg.global.avcodec;
 import org.bytedeco.ffmpeg.global.avutil;
+import org.bytedeco.javacv.Frame;
 
 import java.io.File;
 import java.util.List;
@@ -15,8 +16,6 @@ import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
-import java.io.File;
-import javax.imageio.ImageIO;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class Recorder extends Thread {
@@ -39,9 +38,7 @@ public class Recorder extends Thread {
     private final long timestampIncrementMicros = 1_000_000L / targetFPS;
 
 
-    private volatile Point zoomCenter = null;
-    private final int zoomSize = 300;  // 要截取的區域大小
-    private final double zoomScale = 1.2;  // 放大倍率
+
     private volatile ZoomEffect zoomEffect = null;
     private final List<ClickEffect> clickEffects = new ArrayList<>();
 
@@ -110,10 +107,6 @@ public class Recorder extends Thread {
         }
     }
 
-
-    private long videoTimestamp = 0;
-    private final long timestampIncrementMicros = 1_000_000L / targetFPS;
-
     private void captureAndRecord() {
         try {
             BufferedImage screen = robot.createScreenCapture(screenRect);
@@ -156,7 +149,7 @@ public class Recorder extends Thread {
             Point mouseLocation = pointerInfo.getLocation();
 
             Graphics2D g = screen.createGraphics();
-            BufferedImage cursorImage = ImageIO.read(new File("C:\\Users\\liuch\\IdeaProjects\\SnapRecGUI\\src\\cursorImageRepository\\cursor-mouse-svg-icon-free-download-windows-10-cursor-icon-triangle-symbol-transparent-png-1038697.png"));
+            BufferedImage cursorImage = ImageIO.read(new File("src\\cursorImageRepository\\cursor-mouse-svg-icon-free-download-windows-10-cursor-icon-triangle-symbol-transparent-png-1038697.png"));
             g.drawImage(cursorImage, mouseLocation.x, mouseLocation.y, null);
             // 顯示點擊特效
             synchronized (clickEffects) {
@@ -180,7 +173,7 @@ public class Recorder extends Thread {
 
             // 建立合成圖
             BufferedImage combinedImage = new BufferedImage(outputWidth, outputHeight, BufferedImage.TYPE_3BYTE_BGR);
-            Graphics2D g = combinedImage.createGraphics();
+            g = combinedImage.createGraphics();
 
             // 畫背景圖
             g.drawImage(backgroundImage, 0, 0, outputWidth, outputHeight, null);
@@ -188,7 +181,7 @@ public class Recorder extends Thread {
             // 將螢幕截圖縮放後置中
             int x = (outputWidth - scaledWidth) / 2;
             int y = (outputHeight - scaledHeight) / 2;
-            g.drawImage(screenCapture, x, y, scaledWidth, scaledHeight, null);
+            g.drawImage(screen, x, y, scaledWidth, scaledHeight, null);
 
             g.dispose();
 
