@@ -3,7 +3,7 @@ package com.example.snaprec;
 import java.awt.*;
 
 public class ZoomEffect {
-    final Point center;
+    Point center;
     final long startTime;
     final long durationExpand = 600_000_000L; // 放大動畫 0.5 秒
     final long durationHold = 3_000_000_000L;  // 停留 3 秒
