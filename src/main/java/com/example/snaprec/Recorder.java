@@ -117,6 +117,13 @@ public class Recorder extends Thread {
                 if (effect.isExpired()) {
                     zoomEffect = null;
                 } else {
+                    // 每次都動態更新 center 為當前滑鼠位置
+                    PointerInfo pointerInfo = MouseInfo.getPointerInfo();
+                    Point mouseLocation = pointerInfo.getLocation();
+
+                    // 更新 effect.center 為最新滑鼠座標
+                    effect.center = mouseLocation;
+
                     double scale = effect.getCurrentScale();
                     int zoomW = (int)(screen.getWidth() * scale);
                     int zoomH = (int)(screen.getHeight() * scale);
@@ -142,6 +149,7 @@ public class Recorder extends Thread {
                     screen = zoomed.getSubimage(cropX, cropY, screenRect.width, screenRect.height);
                 }
             }
+
 
             PointerInfo pointerInfo = MouseInfo.getPointerInfo();
             Point mouseLocation = pointerInfo.getLocation();
@@ -204,13 +212,6 @@ public class Recorder extends Thread {
         }
     }
 
-
-
-
-
-
-
-
     public void shutdownAndWait() {
         stopRecording();
         try {
@@ -219,9 +220,6 @@ public class Recorder extends Thread {
             e.printStackTrace();
         }
     }
-
-
-
 
     public void stopRecording() {
         running.set(false);
