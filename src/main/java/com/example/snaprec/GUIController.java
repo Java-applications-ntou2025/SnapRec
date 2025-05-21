@@ -22,6 +22,8 @@ public class GUIController {
     private MediaView mediaView;
     private Slider progressSlider;
     private boolean isSeeking = false;
+    private GlobalMouseListener globalMouseListener;
+
 
     public Scene createScene() {
         Button startBtn = new Button("開始錄影");
@@ -31,23 +33,34 @@ public class GUIController {
         Label statusLabel = new Label("狀態：未錄影");
 
         startBtn.setOnAction(e -> {
-            try {
-                recorder = new Recorder("output.mp4");
-                recorder.start();
-                statusLabel.setText("狀態：錄影中...");
-            } catch (Exception ex) {
-                ex.printStackTrace();
+            if (recorder == null || !recorder.isAlive()) {
+                try {
+                    recorder = new Recorder("output.mp4");
+                    recorder.start();
+                    statusLabel.setText("狀態：錄影中...");
+                    globalMouseListener = new GlobalMouseListener(recorder); // 儲存 listener
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
             }
         });
 
+
+
+
         stopBtn.setOnAction(e -> {
             if (recorder != null) {
-                recorder.stopRecording();
+                recorder.shutdownAndWait();
                 recorder = null;
+                if (globalMouseListener != null) {
+                    globalMouseListener.stop();
+                    globalMouseListener = null;
+                }
                 playVideo();
                 statusLabel.setText("狀態：錄影已完成");
             }
         });
+
 
         playBtn.setOnAction(e -> {
 //            playVideo();
@@ -94,6 +107,11 @@ public class GUIController {
         mediaView.fitHeightProperty().bind(scene.heightProperty().subtract(100));
         return scene;
     }
+
+    public void setRecorder(Recorder recorder) {
+        this.recorder = recorder;
+    }
+
 
     private void playVideo() {
         File videoFile = new File("output.mp4");
