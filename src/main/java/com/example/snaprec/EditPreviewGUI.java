@@ -16,6 +16,8 @@ import javafx.util.Duration;
 import java.io.File;
 
 import static java.lang.Thread.sleep;
+import java.util.Stack;
+
 
 public class EditPreviewGUI extends GUIController {
 
@@ -28,12 +30,20 @@ public class EditPreviewGUI extends GUIController {
     private final String videoPath;
     private ToggleButton playPauseButton = new ToggleButton("播放");;
     private boolean videoEnded = false;
+    private String currentVideoPath;
+    private final Stack<String> undoStack = new Stack<>();
+    private final Stack<String> redoStack = new Stack<>();
+    private Button undoButton = new Button("undo");
+    private Button redoButton = new Button("redo");
+
+
 
     public EditPreviewGUI(String videoPath) {
         this.videoPath = videoPath;
     }
 
     public void showPreviewWindow() throws InterruptedException {
+        this.currentVideoPath = this.videoPath;
         Stage previewStage = new Stage();
         previewStage.setTitle("錄影預覽編輯");
 
@@ -112,8 +122,6 @@ public class EditPreviewGUI extends GUIController {
         progressSlider.setPrefWidth(600);
         progressSlider.setDisable(true); // 尚未載入影片時先禁用
         // 剪輯起訖滑桿
-//        startSlider = new Slider(0, 100, 0);
-//        endSlider = new Slider(0, 100, 100);
         startSlider = new Slider(0, 100, 0);
         endSlider = new Slider(0, 100, 100);
         startSlider.setPrefWidth(600);
@@ -122,10 +130,69 @@ public class EditPreviewGUI extends GUIController {
         Label clipLabel = new Label("剪輯範圍設定");
         clipLabel.setTextFill(Color.BLACK);
 
+        Button previewEditButton = new Button("預覽剪輯區段");
+        previewEditButton.setOnAction(e -> {
+            double startMs = startSlider.getValue();
+            double endMs = endSlider.getValue();
+
+            if (startMs >= endMs) {
+                Alert alert = new Alert(Alert.AlertType.WARNING, "起始時間必須小於結束時間！");
+                alert.showAndWait();
+                return;
+            }
+
+            String trimmedPath = VideoEditor.trimVideoSegment(currentVideoPath, startMs, endMs);
+            try {
+                sleep(500);
+            } catch (InterruptedException ex) {
+                throw new RuntimeException(ex);
+            }
+            if (trimmedPath != null) {
+                undoStack.push(currentVideoPath);
+                currentVideoPath = trimmedPath;
+                redoStack.clear();
+
+                loadVideo(currentVideoPath);
+                updateUndoRedoButtons(undoButton, redoButton);  // <--- 新增
+            } else {
+                Alert alert = new Alert(Alert.AlertType.ERROR, "剪輯失敗！");
+                alert.showAndWait();
+            }
+        });
+
+
         Button exportButton = new Button("匯出剪輯區段");
         exportButton.setDisable(true); // 先關閉功能，待未來實作
 
-        VBox clipControl = new VBox(10, clipLabel, startSlider, endSlider, exportButton);
+        undoButton.setDisable(true);
+        redoButton.setDisable(true);
+
+        undoButton.setOnAction(e -> {
+            if (!undoStack.isEmpty()) {
+                redoStack.push(currentVideoPath);
+                currentVideoPath = undoStack.pop();
+                loadVideo(currentVideoPath);
+                updateUndoRedoButtons(undoButton, redoButton); // <--- 新增
+            }
+        });
+
+        redoButton.setOnAction(e -> {
+            if (!redoStack.isEmpty()) {
+                undoStack.push(currentVideoPath);
+                currentVideoPath = redoStack.pop();
+                loadVideo(currentVideoPath);
+                updateUndoRedoButtons(undoButton, redoButton); // <--- 新增
+            }
+        });
+
+
+
+
+        HBox functionButtons = new HBox(10, undoButton, redoButton, previewEditButton, exportButton);
+        functionButtons.setAlignment(Pos.CENTER);
+
+
+        VBox clipControl = new VBox(10, clipLabel, startSlider, endSlider, functionButtons);
         clipControl.setAlignment(Pos.CENTER);
         clipControl.setPadding(new Insets(10));
 
@@ -138,13 +205,19 @@ public class EditPreviewGUI extends GUIController {
 
         previewStage.setScene(scene);
         previewStage.show();
-
-        loadAndPlayVideo();
+        sleep(500);
+        loadVideo(videoPath);
     }
 
-    private void loadAndPlayVideo() throws InterruptedException {
-        sleep(500); // 給FFmpeg處裡時間輸出mp4
-        File file = new File(videoPath);
+    private void updateUndoRedoButtons(Button undoButton, Button redoButton) {
+        undoButton.setDisable(undoStack.isEmpty());
+        redoButton.setDisable(redoStack.isEmpty());
+    }
+
+    private void loadVideo(String path)  {
+         // 給FFmpeg處裡時間輸出mp4
+        if (mediaPlayer != null) mediaPlayer.dispose();
+        File file = new File(path);
         if (!file.exists()) {
             System.err.println("影片不存在：" + file.getAbsolutePath());
             return;
@@ -154,26 +227,32 @@ public class EditPreviewGUI extends GUIController {
         mediaPlayer = new MediaPlayer(media);
         mediaView.setMediaPlayer(mediaPlayer);
 
-        mediaPlayer.setOnReady(() -> {
-            Duration total = mediaPlayer.getTotalDuration();
-            progressSlider.setMax(total.toMillis());
-            progressSlider.setDisable(false);
-            startSlider.setMax(total.toMillis());
-            endSlider.setMax(total.toMillis());
-            endSlider.setValue(total.toMillis());
-        });
-
-        progressSlider.valueChangingProperty().addListener((obs, wasChanging, isChanging) -> {
-            isSeeking = isChanging;
-            if (!isChanging) {
-                mediaPlayer.seek(Duration.millis(progressSlider.getValue()));
-            }
-        });
+        progressSlider.setDisable(true);
 
         progressSlider.setOnMousePressed(e -> isSeeking = true);
         progressSlider.setOnMouseReleased(e -> {
             isSeeking = false;
-            mediaPlayer.seek(Duration.millis(progressSlider.getValue()));
+            if (mediaPlayer != null) {
+                mediaPlayer.seek(Duration.millis(progressSlider.getValue()));
+            }
+        });
+
+        progressSlider.valueChangingProperty().addListener((obs, wasChanging, isChanging) -> {
+            isSeeking = isChanging;
+            if (!isChanging && mediaPlayer != null) {
+                mediaPlayer.seek(Duration.millis(progressSlider.getValue()));
+            }
+        });
+
+        mediaPlayer.setOnReady(() -> {
+            Duration total = mediaPlayer.getTotalDuration();
+            progressSlider.setMax(total.toMillis());
+            progressSlider.setValue(0);
+            progressSlider.setDisable(false);
+            startSlider.setMax(total.toMillis());
+            startSlider.setValue(0);
+            endSlider.setMax(total.toMillis());
+            endSlider.setValue(total.toMillis());
         });
 
         mediaPlayer.currentTimeProperty().addListener((obs, oldTime, newTime) -> {
@@ -181,16 +260,14 @@ public class EditPreviewGUI extends GUIController {
                 double millis = newTime.toMillis();
                 progressSlider.setValue(millis);
                 if (millis > endSlider.getValue()) {
-                    mediaPlayer.pause(); // 自動停止於剪輯結尾
-//                    this.playPauseButton.setSelected(false);
-//                    this.playPauseButton.setText("播放");
+                    mediaPlayer.pause();
                 }
             }
         });
 
         mediaPlayer.setOnEndOfMedia(() -> {
             videoEnded = true;
-            mediaPlayer.pause(); // 停在最後一幀
+            mediaPlayer.pause();
             this.playPauseButton.setSelected(false);
             this.playPauseButton.setText("播放");
         });
