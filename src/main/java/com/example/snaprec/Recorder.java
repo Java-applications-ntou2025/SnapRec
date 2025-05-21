@@ -189,7 +189,7 @@ public class Recorder extends Thread {
             }
 
             // 畫滑鼠游標（也要轉換）
-            BufferedImage cursorImage = ImageIO.read(new File("C:\\Users\\liuch\\IdeaProjects\\SnapRecGUI\\src\\cursorImageRepository\\cursor-mouse-svg-icon-free-download-windows-10-cursor-icon-triangle-symbol-transparent-png-1038697.png"));
+            BufferedImage cursorImage = ImageIO.read(new File("src\\cursorImageRepository\\cursor-mouse-svg-icon-free-download-windows-10-cursor-icon-triangle-symbol-transparent-png-1038697.png"));
             int cursorX = (int)(mouseLocation.x * 0.8) + offsetX;
             int cursorY = (int)(mouseLocation.y * 0.8) + offsetY;
             g.drawImage(cursorImage, cursorX, cursorY, null);
