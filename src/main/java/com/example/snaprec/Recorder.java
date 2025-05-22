@@ -37,6 +37,7 @@ public class Recorder extends Thread {
 
     private long videoTimestamp = 0;
     private final long timestampIncrementMicros = 1_000_000L / targetFPS;
+    private final BufferedImage cursorImage = ImageIO.read(new File("src\\cursorImageRepository\\cursor-mouse-svg-icon-free-download-windows-10-cursor-icon-triangle-symbol-transparent-png-1038697.png"));
 
 
 
@@ -48,8 +49,8 @@ public class Recorder extends Thread {
         robot = new Robot();
         // 提前載入背景圖片
         backgroundImage = ImageIO.read(new File("src\\picture\\背景01.jpg"));
-        this.outputWidth = 1920;
-        this.outputHeight = 1080;
+        this.outputWidth = screenRect.width;
+        this.outputHeight = screenRect.height;
 
         // 這邊我們以背景圖片的尺寸作為輸出尺寸
         recorder = new FFmpegFrameRecorder(filename, outputWidth, outputHeight);
@@ -59,7 +60,7 @@ public class Recorder extends Thread {
         recorder.setPixelFormat(avutil.AV_PIX_FMT_YUV420P);
 
         // 畫質設定
-        recorder.setVideoBitrate(8000 * 1000); // 8 Mbps
+        recorder.setVideoBitrate(12000 * 1000); // 12 Mbps
         recorder.setVideoOption("preset", "slow");
         recorder.setVideoOption("crf", "18");
 
@@ -111,92 +112,109 @@ public class Recorder extends Thread {
     private void captureAndRecord() {
         try {
             BufferedImage screen = robot.createScreenCapture(screenRect);
-            ZoomEffect effect = zoomEffect; // 用區域變數保留，避免中途變為 null
 
-            if (effect != null) {
-                if (effect.isExpired()) {
-                    zoomEffect = null;
-                } else {
-                    // 每次都動態更新 center 為當前滑鼠位置
-                    PointerInfo pointerInfo = MouseInfo.getPointerInfo();
-                    Point mouseLocation = pointerInfo.getLocation();
+            ZoomEffect effect = null;
+            double scale = 1.0;
+            int cropX = 0, cropY = 0;
 
-                    // 更新 effect.center 為最新滑鼠座標
-                    effect.center = mouseLocation;
+            if (zoomEffect != null && !zoomEffect.isExpired()) {
+                effect = zoomEffect;
 
-                    double scale = effect.getCurrentScale();
-                    int zoomW = (int)(screen.getWidth() * scale);
-                    int zoomH = (int)(screen.getHeight() * scale);
+                // 每次更新中心點為目前滑鼠位置
+                PointerInfo pointerInfo = MouseInfo.getPointerInfo();
+                Point mouseLocation = pointerInfo.getLocation();
+                effect.center = mouseLocation;
 
-                    BufferedImage zoomed = new BufferedImage(zoomW, zoomH, BufferedImage.TYPE_3BYTE_BGR);
-                    Graphics2D g = zoomed.createGraphics();
-                    g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-                    g.drawImage(screen, 0, 0, zoomW, zoomH, null);
-                    g.dispose();
+                scale = effect.getCurrentScale();
+                int centerX = (int) (effect.center.x * scale);
+                int centerY = (int) (effect.center.y * scale);
+                cropX = centerX - screenRect.width / 2 + effect.offsetX;
+                cropY = centerY - screenRect.height / 2 + effect.offsetY;
 
-                    int mouseX = effect.center.x;
-                    int mouseY = effect.center.y;
+                // 放大整個畫面
+                int zoomW = (int) (screen.getWidth() * scale);
+                int zoomH = (int) (screen.getHeight() * scale);
+                BufferedImage zoomed = new BufferedImage(zoomW, zoomH, BufferedImage.TYPE_3BYTE_BGR);
+                Graphics2D gZoom = zoomed.createGraphics();
+                gZoom.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                gZoom.drawImage(screen, 0, 0, zoomW, zoomH, null);
+                gZoom.dispose();
 
-                    int centerX = (int)(mouseX * scale);
-                    int centerY = (int)(mouseY * scale);
+                // 邊界捲動
+                int borderMargin = 80;
+                int scrollSpeed = 5;
+                if (effect.center.x < borderMargin) effect.offsetX -= scrollSpeed;
+                if (effect.center.x > screenRect.width - borderMargin) effect.offsetX += scrollSpeed;
+                if (effect.center.y < borderMargin) effect.offsetY -= scrollSpeed;
+                if (effect.center.y > screenRect.height - borderMargin) effect.offsetY += scrollSpeed;
 
-                    int cropX = centerX - screenRect.width / 2;
-                    int cropY = centerY - screenRect.height / 2;
-
-                    cropX = Math.max(0, Math.min(cropX, zoomed.getWidth() - screenRect.width));
-                    cropY = Math.max(0, Math.min(cropY, zoomed.getHeight() - screenRect.height));
-
-                    screen = zoomed.getSubimage(cropX, cropY, screenRect.width, screenRect.height);
-                }
+                // 限制裁切範圍
+                cropX = Math.max(0, Math.min(cropX, zoomed.getWidth() - screenRect.width));
+                cropY = Math.max(0, Math.min(cropY, zoomed.getHeight() - screenRect.height));
+                screen = zoomed.getSubimage(cropX, cropY, screenRect.width, screenRect.height);
+            } else {
+                zoomEffect = null; // 清除過期的放大效果
             }
-
 
             PointerInfo pointerInfo = MouseInfo.getPointerInfo();
             Point mouseLocation = pointerInfo.getLocation();
 
-
-            // 建立合成圖（含背景 + 縮小的螢幕截圖 + 特效）
+            // 建立合成圖（背景 + 畫面 + 特效）
             BufferedImage combinedImage = new BufferedImage(outputWidth, outputHeight, BufferedImage.TYPE_3BYTE_BGR);
             Graphics2D g = combinedImage.createGraphics();
-
-            // 畫背景
             g.drawImage(backgroundImage, 0, 0, outputWidth, outputHeight, null);
 
-            // 計算縮放後畫面大小與置中位置
-            int scaledWidth = (int)(outputWidth * 0.8);
-            int scaledHeight = (int)(outputHeight * 0.8);
+            int scaledWidth = (int) (outputWidth * 0.8);
+            int scaledHeight = (int) (outputHeight * 0.8);
             int offsetX = (outputWidth - scaledWidth) / 2;
             int offsetY = (outputHeight - scaledHeight) / 2;
 
-            // 畫縮小後的螢幕截圖
             g.drawImage(screen, offsetX, offsetY, scaledWidth, scaledHeight, null);
 
+            // 點擊特效
             synchronized (clickEffects) {
                 clickEffects.removeIf(ClickEffect::isExpired);
                 for (ClickEffect clickeffect : clickEffects) {
-                    double progress = clickeffect.getProgress();  // 0 ~ 1
-                    float alpha = (float)(1.0 - progress);
-                    int radius = (int)(30 + 40 * progress);
+                    double progress = clickeffect.getProgress(); // 0 ~ 1
+                    float alpha = (float) (1.0 - progress);
+                    int radius = (int) (30 + 40 * progress);
 
-                    // 對應到合成圖座標（根據縮放與位移轉換）
-                    int effectX = (int)(clickeffect.location.x * 0.8) + offsetX;
-                    int effectY = (int)(clickeffect.location.y * 0.8) + offsetY;
+                    int effectX, effectY;
 
-                    g.setColor(new Color(1.0f, 0f, 0f, alpha)); // 紅色淡出
+                    if (effect != null) {
+                        int relativeX = (int) ((clickeffect.location.x * scale) - cropX);
+                        int relativeY = (int) ((clickeffect.location.y * scale) - cropY);
+                        effectX = (int) (relativeX * 0.8) + offsetX;
+                        effectY = (int) (relativeY * 0.8) + offsetY;
+                    } else {
+                        effectX = (int) (clickeffect.location.x * 0.8) + offsetX;
+                        effectY = (int) (clickeffect.location.y * 0.8) + offsetY;
+                    }
+
+                    g.setColor(new Color(1.0f, 0f, 0f, alpha));
                     g.setStroke(new BasicStroke(3));
                     g.drawOval(effectX - radius / 2, effectY - radius / 2, radius, radius);
                 }
             }
 
-            // 畫滑鼠游標（也要轉換）
-            BufferedImage cursorImage = ImageIO.read(new File("src\\cursorImageRepository\\cursor-mouse-svg-icon-free-download-windows-10-cursor-icon-triangle-symbol-transparent-png-1038697.png"));
-            int cursorX = (int)(mouseLocation.x * 0.8) + offsetX;
-            int cursorY = (int)(mouseLocation.y * 0.8) + offsetY;
-            g.drawImage(cursorImage, cursorX, cursorY, null);
 
+            // 畫滑鼠游標
+            int cursorX, cursorY;
+            if (effect != null) {
+                int relativeX = (int) ((mouseLocation.x * scale) - cropX);
+                int relativeY = (int) ((mouseLocation.y * scale) - cropY);
+                cursorX = (int) (relativeX * 0.8) + offsetX;
+                cursorY = (int) (relativeY * 0.8) + offsetY;
+            } else {
+                cursorX = (int) (mouseLocation.x * 0.8) + offsetX;
+                cursorY = (int) (mouseLocation.y * 0.8) + offsetY;
+            }
+
+
+            g.drawImage(cursorImage, cursorX, cursorY, null);
             g.dispose();
 
-            // 轉成 Mat → Frame → 記錄
+            // 錄製畫面
             byte[] data = ((DataBufferByte) combinedImage.getRaster().getDataBuffer()).getData();
             Mat mat = new Mat(outputHeight, outputWidth, opencv_core.CV_8UC3);
             mat.data().put(data);
@@ -211,6 +229,8 @@ public class Recorder extends Thread {
             e.printStackTrace();
         }
     }
+
+
 
     public void shutdownAndWait() {
         stopRecording();
