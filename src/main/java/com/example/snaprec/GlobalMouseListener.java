@@ -29,8 +29,8 @@ public class GlobalMouseListener implements NativeMouseListener {
 
     @Override
     public void nativeMouseClicked(NativeMouseEvent e) {
-        int x = (int)(e.getX() * 0.8);
-        int y = (int)(e.getY() * 0.8);
+        int x = e.getX();
+        int y = e.getY();
         System.out.println("全域滑鼠點擊：" + x + ", " + y);
         recorder.setZoomCenter(new Point(x, y));
         recorder.addClickEffect(new Point(x, y));

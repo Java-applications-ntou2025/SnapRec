@@ -35,6 +35,7 @@ public class GUIController {
         startBtn.setOnAction(e -> {
             if (recorder == null || !recorder.isAlive()) {
                 try {
+                    System.setProperty("sun.java2d.uiScale", "1.0");
                     recorder = new Recorder("output.mp4");
                     recorder.start();
                     statusLabel.setText("狀態：錄影中...");
