@@ -197,6 +197,7 @@ public class Recorder extends Thread {
                 }
             }
 
+
             // 畫滑鼠游標
             int cursorX, cursorY;
             if (effect != null) {
@@ -208,6 +209,7 @@ public class Recorder extends Thread {
                 cursorX = (int) (mouseLocation.x * 0.8) + offsetX;
                 cursorY = (int) (mouseLocation.y * 0.8) + offsetY;
             }
+
 
             g.drawImage(cursorImage, cursorX, cursorY, null);
             g.dispose();
