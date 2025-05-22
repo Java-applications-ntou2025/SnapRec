@@ -17,6 +17,7 @@ import java.io.File;
 
 import static java.lang.Thread.sleep;
 import java.util.Stack;
+import org.controlsfx.control.RangeSlider;
 
 
 public class EditPreviewGUI extends GUIController {
@@ -24,8 +25,9 @@ public class EditPreviewGUI extends GUIController {
     private MediaPlayer mediaPlayer;
     private MediaView mediaView;
     private Slider progressSlider;
-    private Slider startSlider;
-    private Slider endSlider;
+    private boolean isInitializingVideo = false;
+    private boolean previewMode = false;
+    private RangeSlider rangeSlider;
     private boolean isSeeking = false;
     private final String videoPath;
     private ToggleButton playPauseButton = new ToggleButton("播放");;
@@ -122,18 +124,40 @@ public class EditPreviewGUI extends GUIController {
         progressSlider.setPrefWidth(600);
         progressSlider.setDisable(true); // 尚未載入影片時先禁用
         // 剪輯起訖滑桿
-        startSlider = new Slider(0, 100, 0);
-        endSlider = new Slider(0, 100, 100);
-        startSlider.setPrefWidth(600);
-        endSlider.setPrefWidth(600);
+        rangeSlider = new RangeSlider(0, 100, 0, 100);
+        rangeSlider.setPrefWidth(600);
+        rangeSlider.setShowTickMarks(false);
+        rangeSlider.setShowTickLabels(false);
+        rangeSlider.setMajorTickUnit(10);
+
 
         Label clipLabel = new Label("剪輯範圍設定");
         clipLabel.setTextFill(Color.BLACK);
 
         Button previewEditButton = new Button("預覽剪輯區段");
         previewEditButton.setOnAction(e -> {
-            double startMs = startSlider.getValue();
-            double endMs = endSlider.getValue();
+            double startMs = rangeSlider.getLowValue();
+            double endMs = rangeSlider.getHighValue();
+            if (startMs >= endMs) {
+                Alert alert = new Alert(Alert.AlertType.WARNING, "起始時間必須小於結束時間！");
+                alert.showAndWait();
+                return;
+            }
+            if (mediaPlayer != null) {
+                previewMode = true; // ← 進入預覽模式
+                mediaPlayer.seek(Duration.millis(startMs));
+                mediaPlayer.play();
+                playPauseButton.setSelected(true);
+                playPauseButton.setText("暫停");
+            }
+        });
+
+
+
+        Button exportButton = new Button("匯出剪輯區段");
+        exportButton.setOnAction(e -> {
+            double startMs = rangeSlider.getLowValue();
+            double endMs = rangeSlider.getHighValue();
 
             if (startMs >= endMs) {
                 Alert alert = new Alert(Alert.AlertType.WARNING, "起始時間必須小於結束時間！");
@@ -147,22 +171,23 @@ public class EditPreviewGUI extends GUIController {
             } catch (InterruptedException ex) {
                 throw new RuntimeException(ex);
             }
+
             if (trimmedPath != null) {
                 undoStack.push(currentVideoPath);
                 currentVideoPath = trimmedPath;
                 redoStack.clear();
 
-                loadVideo(currentVideoPath);
-                updateUndoRedoButtons(undoButton, redoButton);  // <--- 新增
+                try {
+                    loadVideo(currentVideoPath);
+                } catch (InterruptedException ex) {
+                    throw new RuntimeException(ex);
+                }
+                updateUndoRedoButtons(undoButton, redoButton);
             } else {
                 Alert alert = new Alert(Alert.AlertType.ERROR, "剪輯失敗！");
                 alert.showAndWait();
             }
         });
-
-
-        Button exportButton = new Button("匯出剪輯區段");
-        exportButton.setDisable(true); // 先關閉功能，待未來實作
 
         undoButton.setDisable(true);
         redoButton.setDisable(true);
@@ -171,7 +196,11 @@ public class EditPreviewGUI extends GUIController {
             if (!undoStack.isEmpty()) {
                 redoStack.push(currentVideoPath);
                 currentVideoPath = undoStack.pop();
-                loadVideo(currentVideoPath);
+                try {
+                    loadVideo(currentVideoPath);
+                } catch (InterruptedException ex) {
+                    throw new RuntimeException(ex);
+                }
                 updateUndoRedoButtons(undoButton, redoButton); // <--- 新增
             }
         });
@@ -180,7 +209,11 @@ public class EditPreviewGUI extends GUIController {
             if (!redoStack.isEmpty()) {
                 undoStack.push(currentVideoPath);
                 currentVideoPath = redoStack.pop();
-                loadVideo(currentVideoPath);
+                try {
+                    loadVideo(currentVideoPath);
+                } catch (InterruptedException ex) {
+                    throw new RuntimeException(ex);
+                }
                 updateUndoRedoButtons(undoButton, redoButton); // <--- 新增
             }
         });
@@ -192,7 +225,7 @@ public class EditPreviewGUI extends GUIController {
         functionButtons.setAlignment(Pos.CENTER);
 
 
-        VBox clipControl = new VBox(10, clipLabel, startSlider, endSlider, functionButtons);
+        VBox clipControl = new VBox(10, clipLabel, rangeSlider, functionButtons);
         clipControl.setAlignment(Pos.CENTER);
         clipControl.setPadding(new Insets(10));
 
@@ -205,7 +238,7 @@ public class EditPreviewGUI extends GUIController {
 
         previewStage.setScene(scene);
         previewStage.show();
-        sleep(500);
+
         loadVideo(videoPath);
     }
 
@@ -214,8 +247,8 @@ public class EditPreviewGUI extends GUIController {
         redoButton.setDisable(redoStack.isEmpty());
     }
 
-    private void loadVideo(String path)  {
-         // 給FFmpeg處裡時間輸出mp4
+    private void loadVideo(String path) throws InterruptedException {
+        sleep(700); // 給FFmpeg處裡時間輸出mp4
         if (mediaPlayer != null) mediaPlayer.dispose();
         File file = new File(path);
         if (!file.exists()) {
@@ -244,26 +277,59 @@ public class EditPreviewGUI extends GUIController {
             }
         });
 
+        rangeSlider.lowValueProperty().addListener((obs, oldVal, newVal) -> {
+            if (mediaPlayer != null && mediaPlayer.getStatus() == MediaPlayer.Status.PLAYING) {
+                if (isInitializingVideo) return;
+                else {
+                    mediaPlayer.pause();
+                    playPauseButton.setText("播放");
+                    playPauseButton.setSelected(false);
+                }
+            }
+            mediaPlayer.seek(Duration.millis(newVal.doubleValue()));
+        });
+
+        rangeSlider.highValueProperty().addListener((obs, oldVal, newVal) -> {
+            if (isInitializingVideo) return; // ← 加這行防止初始化時觸發 seek
+
+            if (mediaPlayer != null && mediaPlayer.getStatus() == MediaPlayer.Status.PLAYING) {
+                mediaPlayer.pause();
+                playPauseButton.setText("播放");
+                playPauseButton.setSelected(false);
+            }
+            mediaPlayer.seek(Duration.millis(newVal.doubleValue()));
+        });
+
         mediaPlayer.setOnReady(() -> {
             Duration total = mediaPlayer.getTotalDuration();
             progressSlider.setMax(total.toMillis());
             progressSlider.setValue(0);
             progressSlider.setDisable(false);
-            startSlider.setMax(total.toMillis());
-            startSlider.setValue(0);
-            endSlider.setMax(total.toMillis());
-            endSlider.setValue(total.toMillis());
+            rangeSlider.setMin(0);
+            rangeSlider.setMax(total.toMillis());
+
+            // 預設整段區間
+            isInitializingVideo = true;
+            rangeSlider.setLowValue(0);
+            rangeSlider.setHighValue(total.toMillis());
+            isInitializingVideo = false; // ← 必須放在 setHighValue 之後！
         });
+
 
         mediaPlayer.currentTimeProperty().addListener((obs, oldTime, newTime) -> {
             if (!isSeeking && mediaPlayer.getTotalDuration() != null) {
                 double millis = newTime.toMillis();
                 progressSlider.setValue(millis);
-                if (millis > endSlider.getValue()) {
+                if (previewMode && millis >= rangeSlider.getHighValue()) {
                     mediaPlayer.pause();
+                    mediaPlayer.seek(Duration.millis(rangeSlider.getLowValue()));
+                    playPauseButton.setSelected(false);
+                    playPauseButton.setText("播放");
+                    previewMode = false; // ← 結束預覽模式
                 }
             }
         });
+
 
         mediaPlayer.setOnEndOfMedia(() -> {
             videoEnded = true;
