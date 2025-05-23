@@ -2,6 +2,7 @@ package com.example.snaprec;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.effect.DropShadow;
@@ -10,6 +11,8 @@ import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
 import javafx.scene.media.MediaView;
 import javafx.scene.paint.Color;
+import javafx.scene.text.Font;
+import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 
@@ -17,6 +20,8 @@ import java.io.File;
 
 import static java.lang.Thread.sleep;
 import java.util.Stack;
+
+import org.bytedeco.libfreenect._freenect_context;
 import org.controlsfx.control.RangeSlider;
 
 
@@ -37,6 +42,8 @@ public class EditPreviewGUI extends GUIController {
     private final Stack<String> redoStack = new Stack<>();
     private Button undoButton = new Button("undo");
     private Button redoButton = new Button("redo");
+    final double MAX_FONT_SIZE = 25.2;
+    final double MAX_BNT_SIZE = 20.2;
 
 
 
@@ -85,7 +92,9 @@ public class EditPreviewGUI extends GUIController {
         mediaView = new MediaView();
         mediaView.setPreserveRatio(true);
         StackPane mediaContainer = new StackPane();
-        mediaContainer.setPrefSize(1600, 900); // 影片最大顯示範圍
+        Screen screen = Screen.getPrimary();
+        Rectangle2D bounds = screen.getVisualBounds();
+        mediaContainer.setPrefSize(bounds.getWidth()/5*4, bounds.getHeight()/4*3); // 影片最大顯示範圍
         mediaContainer.setStyle("-fx-background-color: #000000;");
 
 // 設定 MediaView 尺寸限制與縮放策略
@@ -119,6 +128,8 @@ public class EditPreviewGUI extends GUIController {
                 }
             }
         });
+
+        playPauseButton.setFont(new Font(MAX_BNT_SIZE));
         //影片控制滑竿
         progressSlider = new Slider();
         progressSlider.setPrefWidth(600);
@@ -133,6 +144,7 @@ public class EditPreviewGUI extends GUIController {
 
         Label clipLabel = new Label("剪輯範圍設定");
         clipLabel.setTextFill(Color.BLACK);
+        clipLabel.setFont(new Font(MAX_FONT_SIZE));
 
         Button previewEditButton = new Button("預覽剪輯區段");
         previewEditButton.setOnAction(e -> {
@@ -191,6 +203,10 @@ public class EditPreviewGUI extends GUIController {
 
         undoButton.setDisable(true);
         redoButton.setDisable(true);
+        undoButton.setFont(new Font(MAX_BNT_SIZE));
+        redoButton.setFont(new Font(MAX_BNT_SIZE));
+        previewEditButton.setFont(new Font(MAX_BNT_SIZE));
+        exportButton.setFont(new Font(MAX_BNT_SIZE));
 
         undoButton.setOnAction(e -> {
             if (!undoStack.isEmpty()) {
@@ -234,9 +250,15 @@ public class EditPreviewGUI extends GUIController {
         videoPanel.setPadding(new Insets(20));
 
         HBox root = new HBox(stylePanel, videoPanel);
-        Scene scene = new Scene(root, 1920, 1080); //EditPreviewGUI 解析度
+        Scene scene = new Scene(root); // 不需要指定解析度，讓全螢幕自動調整
 
         previewStage.setScene(scene);
+
+
+
+
+//        previewStage.setFullScreen(true); // 設定為全螢幕
+        previewStage.setMaximized(true); // 最大化，但保留邊框
         previewStage.show();
 
         loadVideo(videoPath);
