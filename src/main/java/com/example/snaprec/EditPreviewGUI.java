@@ -49,16 +49,19 @@ public class EditPreviewGUI extends GUIController {
     final double MAX_FONT_SIZE = 25.2;
     final double MAX_BNT_SIZE = 20.2;
     private ToggleButton playPauseButton;
+    private Image playIcon = new Image("file:src/cursorImageRepository/play.png");
+    private Image pauseIcon = new Image("file:src/cursorImageRepository/pause.png");
+    private ImageView playPauseImageView = new ImageView(playIcon);
+
 
 
 
     public EditPreviewGUI(String videoPath) {
         this.videoPath = videoPath;
         Image play = new Image("file:src/cursorImageRepository/play.png");
-        ImageView playpic = new ImageView(play);
-        playpic.setFitWidth(16);
-        playpic.setFitHeight(16);
-        this.playPauseButton = new ToggleButton("", playpic);
+        this.playPauseImageView.setFitWidth(16);
+        this.playPauseImageView.setFitHeight(16);
+        this.playPauseButton = new ToggleButton("", playPauseImageView);
     }
 
 
@@ -131,11 +134,11 @@ public class EditPreviewGUI extends GUIController {
                         mediaPlayer.seek(Duration.ZERO);  // 重頭播放
                         videoEnded = false;
                     }
-                    this.playPauseButton.setText("暫停");
                     mediaPlayer.play();
+                    playPauseImageView.setImage(pauseIcon);
                 } else {
-                    this.playPauseButton.setText("播放");
                     mediaPlayer.pause();
+                    playPauseImageView.setImage(playIcon);
                 }
             }
         });
@@ -171,7 +174,6 @@ public class EditPreviewGUI extends GUIController {
                 mediaPlayer.seek(Duration.millis(startMs));
                 mediaPlayer.play();
                 playPauseButton.setSelected(true);
-                playPauseButton.setText("暫停");
             }
         });
 
@@ -315,7 +317,6 @@ public class EditPreviewGUI extends GUIController {
                 if (isInitializingVideo) return;
                 else {
                     mediaPlayer.pause();
-                    playPauseButton.setText("播放");
                     playPauseButton.setSelected(false);
                 }
             }
@@ -327,7 +328,6 @@ public class EditPreviewGUI extends GUIController {
 
             if (mediaPlayer != null && mediaPlayer.getStatus() == MediaPlayer.Status.PLAYING) {
                 mediaPlayer.pause();
-                playPauseButton.setText("播放");
                 playPauseButton.setSelected(false);
             }
             mediaPlayer.seek(Duration.millis(newVal.doubleValue()));
@@ -357,7 +357,6 @@ public class EditPreviewGUI extends GUIController {
                     mediaPlayer.pause();
                     mediaPlayer.seek(Duration.millis(rangeSlider.getLowValue()));
                     playPauseButton.setSelected(false);
-                    playPauseButton.setText("播放");
                     previewMode = false; // ← 結束預覽模式
                 }
             }
@@ -367,9 +366,10 @@ public class EditPreviewGUI extends GUIController {
         mediaPlayer.setOnEndOfMedia(() -> {
             videoEnded = true;
             mediaPlayer.pause();
-            this.playPauseButton.setSelected(false);
-            this.playPauseButton.setText("播放");
+            playPauseButton.setSelected(false);
+            playPauseImageView.setImage(playIcon); // 回復播放圖示
         });
+
 
         mediaPlayer.setOnError(() -> {
             System.err.println("播放錯誤：" + mediaPlayer.getError());
