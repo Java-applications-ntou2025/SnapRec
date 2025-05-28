@@ -6,6 +6,8 @@ import javafx.geometry.Rectangle2D;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.effect.DropShadow;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
@@ -15,6 +17,9 @@ import javafx.scene.text.Font;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.util.Duration;
+import javafx.scene.control.ToggleButton;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 
 import java.io.File;
 
@@ -35,7 +40,6 @@ public class EditPreviewGUI extends GUIController {
     private RangeSlider rangeSlider;
     private boolean isSeeking = false;
     private final String videoPath;
-    private ToggleButton playPauseButton = new ToggleButton("播放");;
     private boolean videoEnded = false;
     private String currentVideoPath;
     private final Stack<String> undoStack = new Stack<>();
@@ -44,12 +48,19 @@ public class EditPreviewGUI extends GUIController {
     private Button redoButton = new Button("redo");
     final double MAX_FONT_SIZE = 25.2;
     final double MAX_BNT_SIZE = 20.2;
+    private ToggleButton playPauseButton;
 
 
 
     public EditPreviewGUI(String videoPath) {
         this.videoPath = videoPath;
+        Image play = new Image("file:src/cursorImageRepository/play.png");
+        ImageView playpic = new ImageView(play);
+        playpic.setFitWidth(16);
+        playpic.setFitHeight(16);
+        this.playPauseButton = new ToggleButton("", playpic);
     }
+
 
     public void showPreviewWindow() throws InterruptedException {
         this.currentVideoPath = this.videoPath;
