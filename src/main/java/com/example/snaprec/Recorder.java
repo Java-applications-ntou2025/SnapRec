@@ -172,6 +172,7 @@ public class Recorder extends Thread {
             g.drawImage(screen, offsetX, offsetY, scaledWidth, scaledHeight, null);
 
             // 點擊特效
+
             synchronized (clickEffects) {
                 clickEffects.removeIf(ClickEffect::isExpired);
                 for (ClickEffect clickeffect : clickEffects) {
