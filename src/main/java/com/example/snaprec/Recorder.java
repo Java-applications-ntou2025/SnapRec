@@ -172,6 +172,7 @@ public class Recorder extends Thread {
             g.drawImage(screen, offsetX, offsetY, scaledWidth, scaledHeight, null);
 
             // 點擊特效
+
             synchronized (clickEffects) {
                 clickEffects.removeIf(ClickEffect::isExpired);
                 for (ClickEffect clickeffect : clickEffects) {
@@ -197,6 +198,7 @@ public class Recorder extends Thread {
                 }
             }
 
+
             // 畫滑鼠游標
             int cursorX, cursorY;
             if (effect != null) {
@@ -208,6 +210,7 @@ public class Recorder extends Thread {
                 cursorX = (int) (mouseLocation.x * 0.8) + offsetX;
                 cursorY = (int) (mouseLocation.y * 0.8) + offsetY;
             }
+
 
             g.drawImage(cursorImage, cursorX, cursorY, null);
             g.dispose();
