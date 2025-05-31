@@ -1,0 +1,9 @@
+/* 保留模式：選取區是藍色 */
+.range-slider .range-bar {
+    -fx-background-color: #3498db;
+}
+
+/* 排除模式：選取區是灰色（代表將排除這段） */
+.range-slider.exclude .range-bar {
+    -fx-background-color: #888888;
+}

@@ -24,6 +24,8 @@ import javafx.scene.image.ImageView;
 import java.io.File;
 
 import static java.lang.Thread.sleep;
+
+import java.util.Objects;
 import java.util.Stack;
 
 import org.bytedeco.libfreenect._freenect_context;
@@ -37,6 +39,7 @@ public class EditPreviewGUI extends GUIController {
     private Slider progressSlider;
     private boolean isInitializingVideo = false;
     private boolean previewMode = false;
+    private boolean excludeMode = false;
     private RangeSlider rangeSlider;
     private boolean isSeeking = false;
     private final String videoPath;
@@ -156,9 +159,7 @@ public class EditPreviewGUI extends GUIController {
         rangeSlider.setMajorTickUnit(10);
 
 
-        Label clipLabel = new Label("剪輯範圍設定");
-        clipLabel.setTextFill(Color.BLACK);
-        clipLabel.setFont(new Font(MAX_FONT_SIZE));
+
 
         Button previewEditButton = new Button("預覽剪輯區段");
         previewEditButton.setOnAction(e -> {
@@ -177,6 +178,19 @@ public class EditPreviewGUI extends GUIController {
             }
         });
 
+        ToggleButton modeToggleButton = new ToggleButton("模式：保留範圍");
+        modeToggleButton.setOnAction(e -> {
+            excludeMode = !excludeMode;
+            modeToggleButton.setText(excludeMode ? "模式：排除範圍" : "模式：保留範圍");
+
+            if (excludeMode) {
+                rangeSlider.getStyleClass().add("exclude");
+                previewEditButton.setDisable(true);
+            } else {
+                rangeSlider.getStyleClass().remove("exclude");
+                previewEditButton.setDisable(false);
+            }
+        });
 
 
         Button exportButton = new Button("匯出剪輯區段");
@@ -190,11 +204,12 @@ public class EditPreviewGUI extends GUIController {
                 return;
             }
 
-            String trimmedPath = VideoEditor.trimVideoSegment(currentVideoPath, startMs, endMs);
-            try {
-                sleep(500);
-            } catch (InterruptedException ex) {
-                throw new RuntimeException(ex);
+            String trimmedPath;
+            if (excludeMode) {
+                trimmedPath = VideoEditor.trimExcludingSegment(currentVideoPath, startMs, endMs);
+                System.out.println("排除中");
+            } else {
+                trimmedPath = VideoEditor.trimVideoSegment(currentVideoPath, startMs, endMs);
             }
 
             if (trimmedPath != null) {
@@ -247,14 +262,11 @@ public class EditPreviewGUI extends GUIController {
             }
         });
 
-
-
-
         HBox functionButtons = new HBox(10, undoButton, redoButton, previewEditButton, exportButton);
         functionButtons.setAlignment(Pos.CENTER);
 
 
-        VBox clipControl = new VBox(10, clipLabel, rangeSlider, functionButtons);
+        VBox clipControl = new VBox(10, modeToggleButton, rangeSlider, functionButtons);
         clipControl.setAlignment(Pos.CENTER);
         clipControl.setPadding(new Insets(10));
 
@@ -263,7 +275,11 @@ public class EditPreviewGUI extends GUIController {
         videoPanel.setPadding(new Insets(20));
 
         HBox root = new HBox(stylePanel, videoPanel);
-        Scene scene = new Scene(root); // 不需要指定解析度，讓全螢幕自動調整
+
+        Scene scene = new Scene(root); //EditPreviewGUI 解析度
+        scene.getStylesheets().add(
+                Objects.requireNonNull(getClass().getResource("/style.css")).toExternalForm()
+        );
 
         previewStage.setScene(scene);
 
