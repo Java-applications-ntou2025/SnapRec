@@ -1,0 +1,7 @@
+blue <a href="https://www.flaticon.com/free-icons/pointer" title="pointer icons">Pointer icons created by meaicon - Flaticon</a>
+yellow <a href="https://www.flaticon.com/free-icons/mouse-clicker" title="mouse clicker icons">Mouse clicker icons created by Andrean Prabowo - Flaticon</a>
+rainbow_halo <a href="https://www.flaticon.com/free-icons/pointer" title="pointer icons">Pointer icons created by Amazona Adorada - Flaticon</a>
+purple <a href="https://www.flaticon.com/free-icons/mouse-cursor" title="mouse cursor icons">Mouse cursor icons created by Fathema Khanom - Flaticon</a>
+rainbow <a href="https://www.flaticon.com/free-icons/mouse-clicker" title="mouse clicker icons">Mouse clicker icons created by Awicon - Flaticon</a>
+green <a href="https://www.flaticon.com/free-icons/mouse-clicker" title="mouse clicker icons">Mouse clicker icons created by Fathema Khanom - Flaticon</a>
+normal <a href="https://www.flaticon.com/free-icons/mouse-clicker" title="mouse clicker icons">Mouse clicker icons created by Bartama Graphic - Flaticon</a>
