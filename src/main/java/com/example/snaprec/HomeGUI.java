@@ -22,7 +22,8 @@ public class HomeGUI extends GUIController {
             if (recorder == null || !recorder.isAlive()) {
                 try {
                     System.setProperty("sun.java2d.uiScale", "1.0");
-                    recorder = new Recorder("output.mp4");
+                    boolean useGpuEncoding = true; // 根據使用者偏好設定
+                    recorder = new Recorder("output.mp4", useGpuEncoding);
                     recorder.start();
                     statusLabel.setText("狀態：錄影中...");
                     globalMouseListener = new GlobalMouseListener(recorder); // 儲存 listener
