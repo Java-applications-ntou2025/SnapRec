@@ -36,6 +36,7 @@ public class GlobalMouseListener implements NativeMouseListener {
         recorder.addClickEffect(new Point(x, y));
     }
 
+
     @Override public void nativeMousePressed(NativeMouseEvent e) {}
     @Override public void nativeMouseReleased(NativeMouseEvent e) {}
 

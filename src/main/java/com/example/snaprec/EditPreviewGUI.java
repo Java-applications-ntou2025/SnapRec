@@ -2,16 +2,24 @@ package com.example.snaprec;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.effect.DropShadow;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
 import javafx.scene.media.MediaView;
 import javafx.scene.paint.Color;
+import javafx.scene.text.Font;
+import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.util.Duration;
+import javafx.scene.control.ToggleButton;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 
 import java.io.File;
 
@@ -19,6 +27,8 @@ import static java.lang.Thread.sleep;
 
 import java.util.Objects;
 import java.util.Stack;
+
+import org.bytedeco.libfreenect._freenect_context;
 import org.controlsfx.control.RangeSlider;
 
 
@@ -33,19 +43,30 @@ public class EditPreviewGUI extends GUIController {
     private RangeSlider rangeSlider;
     private boolean isSeeking = false;
     private final String videoPath;
-    private ToggleButton playPauseButton = new ToggleButton("播放");;
     private boolean videoEnded = false;
     private String currentVideoPath;
     private final Stack<String> undoStack = new Stack<>();
     private final Stack<String> redoStack = new Stack<>();
     private Button undoButton = new Button("undo");
     private Button redoButton = new Button("redo");
+    final double MAX_FONT_SIZE = 25.2;
+    final double MAX_BNT_SIZE = 20.2;
+    private ToggleButton playPauseButton;
+    private Image playIcon = new Image("file:src/cursorImageRepository/play.png");
+    private Image pauseIcon = new Image("file:src/cursorImageRepository/pause.png");
+    private ImageView playPauseImageView = new ImageView(playIcon);
+
 
 
 
     public EditPreviewGUI(String videoPath) {
         this.videoPath = videoPath;
+        Image play = new Image("file:src/cursorImageRepository/play.png");
+        this.playPauseImageView.setFitWidth(16);
+        this.playPauseImageView.setFitHeight(16);
+        this.playPauseButton = new ToggleButton("", playPauseImageView);
     }
+
 
     public void showPreviewWindow() throws InterruptedException {
         this.currentVideoPath = this.videoPath;
@@ -88,7 +109,9 @@ public class EditPreviewGUI extends GUIController {
         mediaView = new MediaView();
         mediaView.setPreserveRatio(true);
         StackPane mediaContainer = new StackPane();
-        mediaContainer.setPrefSize(1600, 900); // 影片最大顯示範圍
+        Screen screen = Screen.getPrimary();
+        Rectangle2D bounds = screen.getVisualBounds();
+        mediaContainer.setPrefSize(bounds.getWidth()/5*4, bounds.getHeight()/4*3); // 影片最大顯示範圍
         mediaContainer.setStyle("-fx-background-color: #000000;");
 
 // 設定 MediaView 尺寸限制與縮放策略
@@ -114,14 +137,16 @@ public class EditPreviewGUI extends GUIController {
                         mediaPlayer.seek(Duration.ZERO);  // 重頭播放
                         videoEnded = false;
                     }
-                    this.playPauseButton.setText("暫停");
                     mediaPlayer.play();
+                    playPauseImageView.setImage(pauseIcon);
                 } else {
-                    this.playPauseButton.setText("播放");
                     mediaPlayer.pause();
+                    playPauseImageView.setImage(playIcon);
                 }
             }
         });
+
+        playPauseButton.setFont(new Font(MAX_BNT_SIZE));
         //影片控制滑竿
         progressSlider = new Slider();
         progressSlider.setPrefWidth(600);
@@ -150,7 +175,6 @@ public class EditPreviewGUI extends GUIController {
                 mediaPlayer.seek(Duration.millis(startMs));
                 mediaPlayer.play();
                 playPauseButton.setSelected(true);
-                playPauseButton.setText("暫停");
             }
         });
 
@@ -207,6 +231,10 @@ public class EditPreviewGUI extends GUIController {
 
         undoButton.setDisable(true);
         redoButton.setDisable(true);
+        undoButton.setFont(new Font(MAX_BNT_SIZE));
+        redoButton.setFont(new Font(MAX_BNT_SIZE));
+        previewEditButton.setFont(new Font(MAX_BNT_SIZE));
+        exportButton.setFont(new Font(MAX_BNT_SIZE));
 
         undoButton.setOnAction(e -> {
             if (!undoStack.isEmpty()) {
@@ -247,12 +275,19 @@ public class EditPreviewGUI extends GUIController {
         videoPanel.setPadding(new Insets(20));
 
         HBox root = new HBox(stylePanel, videoPanel);
-        Scene scene = new Scene(root, 1920, 1080); //EditPreviewGUI 解析度
+
+        Scene scene = new Scene(root); //EditPreviewGUI 解析度
         scene.getStylesheets().add(
                 Objects.requireNonNull(getClass().getResource("/style.css")).toExternalForm()
         );
 
         previewStage.setScene(scene);
+
+
+
+
+//        previewStage.setFullScreen(true); // 設定為全螢幕
+        previewStage.setMaximized(true); // 最大化，但保留邊框
         previewStage.show();
 
         loadVideo(videoPath);
@@ -298,7 +333,6 @@ public class EditPreviewGUI extends GUIController {
                 if (isInitializingVideo) return;
                 else {
                     mediaPlayer.pause();
-                    playPauseButton.setText("播放");
                     playPauseButton.setSelected(false);
                 }
             }
@@ -310,7 +344,6 @@ public class EditPreviewGUI extends GUIController {
 
             if (mediaPlayer != null && mediaPlayer.getStatus() == MediaPlayer.Status.PLAYING) {
                 mediaPlayer.pause();
-                playPauseButton.setText("播放");
                 playPauseButton.setSelected(false);
             }
             mediaPlayer.seek(Duration.millis(newVal.doubleValue()));
@@ -340,7 +373,6 @@ public class EditPreviewGUI extends GUIController {
                     mediaPlayer.pause();
                     mediaPlayer.seek(Duration.millis(rangeSlider.getLowValue()));
                     playPauseButton.setSelected(false);
-                    playPauseButton.setText("播放");
                     previewMode = false; // ← 結束預覽模式
                 }
             }
@@ -350,9 +382,10 @@ public class EditPreviewGUI extends GUIController {
         mediaPlayer.setOnEndOfMedia(() -> {
             videoEnded = true;
             mediaPlayer.pause();
-            this.playPauseButton.setSelected(false);
-            this.playPauseButton.setText("播放");
+            playPauseButton.setSelected(false);
+            playPauseImageView.setImage(playIcon); // 回復播放圖示
         });
+
 
         mediaPlayer.setOnError(() -> {
             System.err.println("播放錯誤：" + mediaPlayer.getError());

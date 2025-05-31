@@ -22,7 +22,6 @@ public abstract class GUIController {
     public MediaView mediaView;
     public GlobalMouseListener globalMouseListener;
 
-
     public Scene createScene() {
 
         Label label = new Label("Java SnapRac：");
@@ -38,9 +37,5 @@ public abstract class GUIController {
         mediaView.fitHeightProperty().bind(scene.heightProperty().subtract(100));
         return scene;
     }
-
-
-
-
-
 }
+
