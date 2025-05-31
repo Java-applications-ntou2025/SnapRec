@@ -52,8 +52,8 @@ public class EditPreviewGUI extends GUIController {
     final double MAX_FONT_SIZE = 25.2;
     final double MAX_BNT_SIZE = 20.2;
     private ToggleButton playPauseButton;
-    private Image playIcon = new Image("file:src/cursorImageRepository/play.png");
-    private Image pauseIcon = new Image("file:src/cursorImageRepository/pause.png");
+    private Image playIcon = new Image("file:src/ImageRepository/play.png");
+    private Image pauseIcon = new Image("file:src/ImageRepository/pause.png");
     private ImageView playPauseImageView = new ImageView(playIcon);
 
 
@@ -61,7 +61,7 @@ public class EditPreviewGUI extends GUIController {
 
     public EditPreviewGUI(String videoPath) {
         this.videoPath = videoPath;
-        Image play = new Image("file:src/cursorImageRepository/play.png");
+        Image play = new Image("file:src/ImageRepository/play.png");
         this.playPauseImageView.setFitWidth(16);
         this.playPauseImageView.setFitHeight(16);
         this.playPauseButton = new ToggleButton("", playPauseImageView);
@@ -207,7 +207,7 @@ public class EditPreviewGUI extends GUIController {
             String trimmedPath;
             if (excludeMode) {
                 trimmedPath = VideoEditor.trimExcludingSegment(currentVideoPath, startMs, endMs);
-                System.out.println("排除中");
+//                System.out.println("排除中");
             } else {
                 trimmedPath = VideoEditor.trimVideoSegment(currentVideoPath, startMs, endMs);
             }

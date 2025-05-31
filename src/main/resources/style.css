@@ -1,3 +1,7 @@
+/*GUI背景*/
+.root {
+    -fx-background-color: linear-gradient(from 0% 0% to 0% 100%, #d0eaff, #ffffff);
+}
 /* 保留模式：選取區是藍色 */
 .range-slider .range-bar {
     -fx-background-color: #3498db;

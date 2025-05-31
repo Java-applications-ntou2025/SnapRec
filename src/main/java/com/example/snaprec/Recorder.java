@@ -45,9 +45,9 @@ public class Recorder extends Thread {
 
     private Thread captureThread;
 
-    public Recorder(String filename, boolean useGpuEncoding) throws Exception {
+    public Recorder(String filename, boolean useGpuEncoding, String CursorimagePath, String backgroundImagePath) throws Exception {
         robot = new Robot();
-        backgroundImage = ImageIO.read(new File("src\\picture\\背景01.jpg"));
+        backgroundImage = ImageIO.read(new File(backgroundImagePath));
         outputWidth = screenRect.width;
         outputHeight = screenRect.height;
 
@@ -77,7 +77,8 @@ public class Recorder extends Thread {
         recorder.setAudioCodec(avcodec.AV_CODEC_ID_AAC);
         recorder.setAudioChannels(1);
 
-        cursorImage = ImageIO.read(new File("src\\cursorImageRepository\\cursor-mouse-svg-icon-free-download-windows-10-cursor-icon-triangle-symbol-transparent-png-1038697.png"));
+        cursorImage = ImageIO.read(new File(CursorimagePath));
+
     }
 
 
@@ -229,7 +230,13 @@ public class Recorder extends Thread {
             }
         }
 
-        // 游標繪製
+        // 游標繪製（含縮放）
+        int cursorWidth = cursorImage.getWidth();
+        int cursorHeight = cursorImage.getHeight();
+        double cursorScale = 0.09;
+        int scaledCursorWidth = (int)(cursorWidth * cursorScale);
+        int scaledCursorHeight = (int)(cursorHeight * cursorScale);
+
         int cursorX, cursorY;
         if (effect != null) {
             int relativeX = (int) ((mouseLocation.x * scale) - cropX);
@@ -240,7 +247,10 @@ public class Recorder extends Thread {
             cursorX = (int) (mouseLocation.x * 0.8) + offsetX;
             cursorY = (int) (mouseLocation.y * 0.8) + offsetY;
         }
-        g.drawImage(cursorImage, cursorX, cursorY, null);
+
+        int drawX = cursorX - scaledCursorWidth / 2;
+        int drawY = cursorY - scaledCursorHeight / 2;
+        g.drawImage(cursorImage, drawX, drawY, scaledCursorWidth, scaledCursorHeight, null);
 
         g.dispose();
 
