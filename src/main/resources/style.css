@@ -1,0 +1,23 @@
+/* 預設 RangeSlider：藍色在中間（保留模式） */
+.range-slider .track {
+    -fx-background-color: linear-gradient(to right,
+        -fx-track-fill 0%,
+        -fx-track-fill 25%,
+        -fx-range-bar 25%,
+        -fx-range-bar 75%,
+        -fx-track-fill 75%,
+        -fx-track-fill 100%
+    );
+}
+
+/* 排除模式：藍色在兩側，中間為灰色（排除區段） */
+.range-slider.exclude .track {
+    -fx-background-color: linear-gradient(to right,
+        -fx-range-bar 0%,
+        -fx-range-bar 25%,
+        -fx-track-fill 25%,
+        -fx-track-fill 75%,
+        -fx-range-bar 75%,
+        -fx-range-bar 100%
+    );
+}
