@@ -1,23 +1,9 @@
-/* 預設 RangeSlider：藍色在中間（保留模式） */
-.range-slider .track {
-    -fx-background-color: linear-gradient(to right,
-        -fx-track-fill 0%,
-        -fx-track-fill 25%,
-        -fx-range-bar 25%,
-        -fx-range-bar 75%,
-        -fx-track-fill 75%,
-        -fx-track-fill 100%
-    );
+/* 保留模式：選取區是藍色 */
+.range-slider .range-bar {
+    -fx-background-color: #3498db;
 }
 
-/* 排除模式：藍色在兩側，中間為灰色（排除區段） */
-.range-slider.exclude .track {
-    -fx-background-color: linear-gradient(to right,
-        -fx-range-bar 0%,
-        -fx-range-bar 25%,
-        -fx-track-fill 25%,
-        -fx-track-fill 75%,
-        -fx-range-bar 75%,
-        -fx-range-bar 100%
-    );
+/* 排除模式：選取區是灰色（代表將排除這段） */
+.range-slider.exclude .range-bar {
+    -fx-background-color: #888888;
 }
