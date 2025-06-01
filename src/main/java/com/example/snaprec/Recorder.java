@@ -42,7 +42,7 @@ public class Recorder extends Thread {
 
     // 影格佇列
     private final BlockingQueue<BufferedImage> frameQueue = new ArrayBlockingQueue<>(10);
-
+    private volatile boolean finished = false;
     private Thread captureThread;
 
     public Recorder(String filename, boolean useGpuEncoding, String CursorimagePath, String backgroundImagePath) throws Exception {
@@ -144,6 +144,8 @@ public class Recorder extends Thread {
         } catch (Exception e) {
             System.err.println("Recorder: 錄影過程發生錯誤！");
             e.printStackTrace();
+        } finally {
+            finished = true;
         }
     }
 
@@ -272,6 +274,9 @@ public class Recorder extends Thread {
         stopRecording();
         try {
             this.join();
+            while (!finished) {
+                Thread.sleep(50);
+            }
         } catch (InterruptedException e) {
             e.printStackTrace();
         }

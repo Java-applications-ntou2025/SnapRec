@@ -49,6 +49,7 @@ public class EditPreviewGUI extends GUIController {
     private final Stack<String> redoStack = new Stack<>();
     private Button undoButton = new Button("undo");
     private Button redoButton = new Button("redo");
+    private Button closeButton = new Button("匯出影片");
     final double MAX_FONT_SIZE = 25.2;
     final double MAX_BNT_SIZE = 20.2;
     private ToggleButton playPauseButton;
@@ -75,28 +76,9 @@ public class EditPreviewGUI extends GUIController {
 
         // 左側樣式控制欄
         Label styleLabel = new Label("影片樣式");
-//        Slider roundnessSlider = new Slider(0, 50, 4);
-//        roundnessSlider.setShowTickMarks(true);
-//        roundnessSlider.setShowTickLabels(true);
-//        roundnessSlider.setMajorTickUnit(10);
-//        roundnessSlider.setBlockIncrement(1);
-//
-//        Slider shadowSlider = new Slider(0, 100, 60);
-//        shadowSlider.setShowTickMarks(true);
-//        shadowSlider.setShowTickLabels(true);
-//
-//        ColorPicker bgColorPicker = new ColorPicker(Color.BLACK);
-//        ComboBox<String> aspectRatioBox = new ComboBox<>();
-//        aspectRatioBox.getItems().addAll("原始尺寸", "16:9", "4:3", "1:1");
-//        aspectRatioBox.getSelectionModel().selectFirst();
 
         VBox stylePanel = new VBox(15,
                 styleLabel
-//                ,
-//                new Label("圓角"), roundnessSlider,
-//                new Label("陰影"), shadowSlider,
-//                new Label("背景色"), bgColorPicker,
-//                new Label("比例"), aspectRatioBox
         );
         stylePanel.setPadding(new Insets(20));
         stylePanel.setPrefWidth(350);
@@ -193,7 +175,7 @@ public class EditPreviewGUI extends GUIController {
         });
 
 
-        Button exportButton = new Button("匯出剪輯區段");
+        Button exportButton = new Button("剪輯區段");
         exportButton.setOnAction(e -> {
             double startMs = rangeSlider.getLowValue();
             double endMs = rangeSlider.getHighValue();
@@ -229,6 +211,60 @@ public class EditPreviewGUI extends GUIController {
             }
         });
 
+        // EditPreviewGUI.java
+
+        closeButton.setOnAction(e -> {
+            TextInputDialog dialog = new TextInputDialog("my_video.mp4");
+            dialog.setTitle("匯出影片");
+            dialog.setHeaderText("請輸入影片檔名（含 .mp4）：");
+            dialog.setContentText("檔名：");
+
+            dialog.showAndWait().ifPresent(filename -> {
+                if (filename.trim().isEmpty() || !filename.endsWith(".mp4")) {
+                    Alert alert = new Alert(Alert.AlertType.ERROR, "請輸入有效的 .mp4 檔名！");
+                    alert.showAndWait();
+                    return;
+                }
+                // 先關閉視窗與 MediaPlayer
+                if (mediaPlayer != null) {
+                    mediaPlayer.dispose();
+                }
+                // 關閉視窗
+                Stage currentStage = (Stage) closeButton.getScene().getWindow();
+                currentStage.close();
+
+                // 再執行檔案重新命名
+                File oldFile = new File(currentVideoPath);
+                File newFile = new File(filename);
+                try {
+                    if (oldFile.exists()) {
+                        if (oldFile.renameTo(newFile)) {
+                            Alert alert = new Alert(Alert.AlertType.INFORMATION, "影片已匯出為：" + filename);
+                            alert.showAndWait();
+                            File dir = new File(".");
+                            File[] files = dir.listFiles((d, name) -> name.endsWith(".mp4") && !name.equals(newFile.getName()));
+                            if (files != null) {
+                                for (File f : files) {
+                                    f.delete();
+                                }
+                            }
+                        } else {
+                            Alert alert = new Alert(Alert.AlertType.ERROR, "檔案重新命名失敗！");
+                            alert.showAndWait();
+                            currentStage.show();
+                        }
+                    } else {
+                        Alert alert = new Alert(Alert.AlertType.ERROR, "找不到原始影片 output.mp4！");
+                        alert.showAndWait();
+                    }
+                } catch (Exception ex) {
+                    Alert alert = new Alert(Alert.AlertType.ERROR, "無法建立新檔案：" + ex.getMessage());
+                    alert.showAndWait();
+                }
+            });
+        });
+
+
         undoButton.setDisable(true);
         redoButton.setDisable(true);
         undoButton.setFont(new Font(MAX_BNT_SIZE));
@@ -262,7 +298,7 @@ public class EditPreviewGUI extends GUIController {
             }
         });
 
-        HBox functionButtons = new HBox(10, undoButton, redoButton, previewEditButton, exportButton);
+        HBox functionButtons = new HBox(10, undoButton, redoButton, previewEditButton, exportButton, closeButton);
         functionButtons.setAlignment(Pos.CENTER);
 
 
