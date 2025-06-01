@@ -20,6 +20,11 @@ import javafx.util.Duration;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.stage.FileChooser;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
+import java.io.IOException;
+
 
 import java.io.File;
 
@@ -262,7 +267,40 @@ public class EditPreviewGUI extends GUIController {
             }
         });
 
-        HBox functionButtons = new HBox(10, undoButton, redoButton, previewEditButton, exportButton);
+        Button renameExportButton = new Button("重新命名並匯出影片");
+        renameExportButton.setFont(new Font(MAX_BNT_SIZE));
+        renameExportButton.setOnAction(e -> {
+            if (currentVideoPath == null || currentVideoPath.isEmpty()) {
+                Alert alert = new Alert(Alert.AlertType.WARNING, "目前無影片可匯出！");
+                alert.showAndWait();
+                return;
+            }
+
+            FileChooser fileChooser = new FileChooser();
+            fileChooser.setTitle("選擇匯出影片路徑與檔名");
+            // 設定預設檔名
+            File currentFile = new File(currentVideoPath);
+            fileChooser.setInitialFileName(currentFile.getName());
+            // 設定過濾器，只顯示 mp4
+            FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter("MP4 影片 (*.mp4)", "*.mp4");
+            fileChooser.getExtensionFilters().add(extFilter);
+
+            File destFile = fileChooser.showSaveDialog(previewStage);
+            if (destFile != null) {
+                try {
+                    Files.copy(currentFile.toPath(), destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                    Alert alert = new Alert(Alert.AlertType.INFORMATION, "影片成功匯出到：" + destFile.getAbsolutePath());
+                    alert.showAndWait();
+                } catch (IOException ex) {
+                    Alert alert = new Alert(Alert.AlertType.ERROR, "匯出失敗：" + ex.getMessage());
+                    alert.showAndWait();
+                    ex.printStackTrace();
+                }
+            }
+        });
+
+
+        HBox functionButtons = new HBox(10, undoButton, redoButton, previewEditButton, exportButton, renameExportButton);
         functionButtons.setAlignment(Pos.CENTER);
 
 
