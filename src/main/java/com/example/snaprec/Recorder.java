@@ -233,9 +233,6 @@ public class Recorder extends Thread {
         // 游標繪製（含縮放）
         int cursorWidth = cursorImage.getWidth();
         int cursorHeight = cursorImage.getHeight();
-        double cursorScale = 0.09;
-        int scaledCursorWidth = (int)(cursorWidth * cursorScale);
-        int scaledCursorHeight = (int)(cursorHeight * cursorScale);
 
         int cursorX, cursorY;
         if (effect != null) {
@@ -247,10 +244,7 @@ public class Recorder extends Thread {
             cursorX = (int) (mouseLocation.x * 0.8) + offsetX;
             cursorY = (int) (mouseLocation.y * 0.8) + offsetY;
         }
-
-        int drawX = cursorX - scaledCursorWidth / 2;
-        int drawY = cursorY - scaledCursorHeight / 2;
-        g.drawImage(cursorImage, drawX, drawY, scaledCursorWidth, scaledCursorHeight, null);
+        g.drawImage(cursorImage, cursorX, cursorY, cursorWidth, cursorHeight, null);
 
         g.dispose();
 

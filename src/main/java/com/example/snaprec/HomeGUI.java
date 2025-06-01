@@ -118,6 +118,10 @@ public class HomeGUI extends GUIController {
                     recorder.start();
                     statusLabel.setText("狀態：錄影中...");
                     globalMouseListener = new GlobalMouseListener(recorder);
+
+                    //自動最小化
+                    Stage currentStage = (Stage) ((Button) e.getSource()).getScene().getWindow();
+                    currentStage.setIconified(true);
                 } catch (Exception ex) {
                     ex.printStackTrace();
                 }
