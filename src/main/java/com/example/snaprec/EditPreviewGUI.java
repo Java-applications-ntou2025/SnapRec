@@ -20,10 +20,17 @@ import javafx.util.Duration;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.stage.FileChooser;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
+import java.io.IOException;
+
 
 import java.io.File;
 
 import static java.lang.Thread.sleep;
+
+import java.util.Objects;
 import java.util.Stack;
 
 import org.bytedeco.libfreenect._freenect_context;
@@ -37,6 +44,7 @@ public class EditPreviewGUI extends GUIController {
     private Slider progressSlider;
     private boolean isInitializingVideo = false;
     private boolean previewMode = false;
+    private boolean excludeMode = false;
     private RangeSlider rangeSlider;
     private boolean isSeeking = false;
     private final String videoPath;
@@ -49,8 +57,8 @@ public class EditPreviewGUI extends GUIController {
     final double MAX_FONT_SIZE = 25.2;
     final double MAX_BNT_SIZE = 20.2;
     private ToggleButton playPauseButton;
-    private Image playIcon = new Image("file:src/cursorImageRepository/play.png");
-    private Image pauseIcon = new Image("file:src/cursorImageRepository/pause.png");
+    private Image playIcon = new Image("file:src/ImageRepository/play.png");
+    private Image pauseIcon = new Image("file:src/ImageRepository/pause.png");
     private ImageView playPauseImageView = new ImageView(playIcon);
 
 
@@ -58,7 +66,7 @@ public class EditPreviewGUI extends GUIController {
 
     public EditPreviewGUI(String videoPath) {
         this.videoPath = videoPath;
-        Image play = new Image("file:src/cursorImageRepository/play.png");
+        Image play = new Image("file:src/ImageRepository/play.png");
         this.playPauseImageView.setFitWidth(16);
         this.playPauseImageView.setFitHeight(16);
         this.playPauseButton = new ToggleButton("", playPauseImageView);
@@ -156,9 +164,7 @@ public class EditPreviewGUI extends GUIController {
         rangeSlider.setMajorTickUnit(10);
 
 
-        Label clipLabel = new Label("剪輯範圍設定");
-        clipLabel.setTextFill(Color.BLACK);
-        clipLabel.setFont(new Font(MAX_FONT_SIZE));
+
 
         Button previewEditButton = new Button("預覽剪輯區段");
         previewEditButton.setOnAction(e -> {
@@ -177,6 +183,19 @@ public class EditPreviewGUI extends GUIController {
             }
         });
 
+        ToggleButton modeToggleButton = new ToggleButton("模式：保留範圍");
+        modeToggleButton.setOnAction(e -> {
+            excludeMode = !excludeMode;
+            modeToggleButton.setText(excludeMode ? "模式：排除範圍" : "模式：保留範圍");
+
+            if (excludeMode) {
+                rangeSlider.getStyleClass().add("exclude");
+                previewEditButton.setDisable(true);
+            } else {
+                rangeSlider.getStyleClass().remove("exclude");
+                previewEditButton.setDisable(false);
+            }
+        });
 
 
         Button exportButton = new Button("匯出剪輯區段");
@@ -190,11 +209,12 @@ public class EditPreviewGUI extends GUIController {
                 return;
             }
 
-            String trimmedPath = VideoEditor.trimVideoSegment(currentVideoPath, startMs, endMs);
-            try {
-                sleep(500);
-            } catch (InterruptedException ex) {
-                throw new RuntimeException(ex);
+            String trimmedPath;
+            if (excludeMode) {
+                trimmedPath = VideoEditor.trimExcludingSegment(currentVideoPath, startMs, endMs);
+//                System.out.println("排除中");
+            } else {
+                trimmedPath = VideoEditor.trimVideoSegment(currentVideoPath, startMs, endMs);
             }
 
             if (trimmedPath != null) {
@@ -247,14 +267,44 @@ public class EditPreviewGUI extends GUIController {
             }
         });
 
+        Button renameExportButton = new Button("重新命名並匯出影片");
+        renameExportButton.setFont(new Font(MAX_BNT_SIZE));
+        renameExportButton.setOnAction(e -> {
+            if (currentVideoPath == null || currentVideoPath.isEmpty()) {
+                Alert alert = new Alert(Alert.AlertType.WARNING, "目前無影片可匯出！");
+                alert.showAndWait();
+                return;
+            }
+
+            FileChooser fileChooser = new FileChooser();
+            fileChooser.setTitle("選擇匯出影片路徑與檔名");
+            // 設定預設檔名
+            File currentFile = new File(currentVideoPath);
+            fileChooser.setInitialFileName(currentFile.getName());
+            // 設定過濾器，只顯示 mp4
+            FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter("MP4 影片 (*.mp4)", "*.mp4");
+            fileChooser.getExtensionFilters().add(extFilter);
+
+            File destFile = fileChooser.showSaveDialog(previewStage);
+            if (destFile != null) {
+                try {
+                    Files.copy(currentFile.toPath(), destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                    Alert alert = new Alert(Alert.AlertType.INFORMATION, "影片成功匯出到：" + destFile.getAbsolutePath());
+                    alert.showAndWait();
+                } catch (IOException ex) {
+                    Alert alert = new Alert(Alert.AlertType.ERROR, "匯出失敗：" + ex.getMessage());
+                    alert.showAndWait();
+                    ex.printStackTrace();
+                }
+            }
+        });
 
 
-
-        HBox functionButtons = new HBox(10, undoButton, redoButton, previewEditButton, exportButton);
+        HBox functionButtons = new HBox(10, undoButton, redoButton, previewEditButton, exportButton, renameExportButton);
         functionButtons.setAlignment(Pos.CENTER);
 
 
-        VBox clipControl = new VBox(10, clipLabel, rangeSlider, functionButtons);
+        VBox clipControl = new VBox(10, modeToggleButton, rangeSlider, functionButtons);
         clipControl.setAlignment(Pos.CENTER);
         clipControl.setPadding(new Insets(10));
 
@@ -263,7 +313,11 @@ public class EditPreviewGUI extends GUIController {
         videoPanel.setPadding(new Insets(20));
 
         HBox root = new HBox(stylePanel, videoPanel);
-        Scene scene = new Scene(root); // 不需要指定解析度，讓全螢幕自動調整
+
+        Scene scene = new Scene(root); //EditPreviewGUI 解析度
+        scene.getStylesheets().add(
+                Objects.requireNonNull(getClass().getResource("/style.css")).toExternalForm()
+        );
 
         previewStage.setScene(scene);
 
