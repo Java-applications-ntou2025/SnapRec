@@ -78,6 +78,13 @@ public class EditPreviewGUI extends GUIController {
         Stage previewStage = new Stage();
         previewStage.setTitle("錄影預覽編輯");
 
+        previewStage.setOnCloseRequest(e -> {
+            if (mediaPlayer != null) {
+                mediaPlayer.dispose();
+            }
+        });
+
+
         // 左側樣式控制欄
         Label styleLabel = new Label("影片樣式");
 //        Slider roundnessSlider = new Slider(0, 50, 4);
